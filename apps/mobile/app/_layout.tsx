@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
-import { ActivityIndicator, SafeAreaView, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, SafeAreaView, Text, View } from "react-native";
 import { useSessionStore } from "../src/state/session";
 import { useOfflineSync } from "../src/hooks/useOfflineSync";
 
@@ -10,10 +10,36 @@ export default function RootLayout() {
   const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
   const isBootstrapped = useSessionStore((state) => state.isBootstrapped);
   const { flushQueue } = useOfflineSync();
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
-    void bootstrapSession();
-  }, [bootstrapSession]);
+    let isMounted = true;
+    const run = async () => {
+      setIsBootstrapping(true);
+      setBootstrapError(null);
+      try {
+        await bootstrapSession();
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "Failed to start guest session.";
+        setBootstrapError(message);
+      } finally {
+        if (isMounted) {
+          setIsBootstrapping(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [bootstrapSession, retryNonce]);
 
   useEffect(() => {
     if (!isBootstrapped) {
@@ -32,9 +58,28 @@ export default function RootLayout() {
   if (!isBootstrapped) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
+        {isBootstrapping ? <ActivityIndicator size="large" /> : null}
         <View style={{ height: 12 }} />
-        <Text>Starting guest session...</Text>
+        <Text>{isBootstrapping ? "Starting guest session..." : "Unable to start session."}</Text>
+        {bootstrapError ? (
+          <>
+            <View style={{ height: 8 }} />
+            <Text style={{ color: "#6b7280", paddingHorizontal: 24, textAlign: "center" }}>{bootstrapError}</Text>
+            <View style={{ height: 14 }} />
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setRetryNonce((value) => value + 1)}
+              style={{
+                backgroundColor: "#111827",
+                borderRadius: 8,
+                paddingHorizontal: 16,
+                paddingVertical: 10
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600" }}>Retry</Text>
+            </Pressable>
+          </>
+        ) : null}
       </SafeAreaView>
     );
   }

@@ -805,65 +805,80 @@ alter table public.activity_feed_events enable row level security;
 alter table public.security_events enable row level security;
 
 -- Public readonly city/quest config for authenticated players.
-create policy if not exists "cities_select_authenticated"
+drop policy if exists "cities_select_authenticated" on public.cities;
+create policy "cities_select_authenticated"
 on public.cities for select
 using (auth.role() = 'authenticated');
 
-create policy if not exists "city_runtime_config_select_authenticated"
+drop policy if exists "city_runtime_config_select_authenticated" on public.city_runtime_config;
+create policy "city_runtime_config_select_authenticated"
 on public.city_runtime_config for select
 using (auth.role() = 'authenticated');
 
-create policy if not exists "quests_select_authenticated"
+drop policy if exists "quests_select_authenticated" on public.quests;
+create policy "quests_select_authenticated"
 on public.quests for select
 using (auth.role() = 'authenticated');
 
-create policy if not exists "badges_select_authenticated"
+drop policy if exists "badges_select_authenticated" on public.badges;
+create policy "badges_select_authenticated"
 on public.badges for select
 using (auth.role() = 'authenticated');
 
-create policy if not exists "profiles_select_self"
+drop policy if exists "profiles_select_self" on public.profiles;
+create policy "profiles_select_self"
 on public.profiles for select
 using (auth.uid() = id);
 
-create policy if not exists "profiles_insert_self"
+drop policy if exists "profiles_insert_self" on public.profiles;
+create policy "profiles_insert_self"
 on public.profiles for insert
 with check (auth.uid() = id);
 
-create policy if not exists "profiles_update_self"
+drop policy if exists "profiles_update_self" on public.profiles;
+create policy "profiles_update_self"
 on public.profiles for update
 using (auth.uid() = id)
 with check (auth.uid() = id);
 
-create policy if not exists "quest_completions_select_self"
+drop policy if exists "quest_completions_select_self" on public.quest_completions;
+create policy "quest_completions_select_self"
 on public.quest_completions for select
 using (auth.uid() = user_id);
 
-create policy if not exists "user_stats_select_self"
+drop policy if exists "user_stats_select_self" on public.user_stats;
+create policy "user_stats_select_self"
 on public.user_stats for select
 using (auth.uid() = user_id);
 
-create policy if not exists "user_badges_select_self"
+drop policy if exists "user_badges_select_self" on public.user_badges;
+create policy "user_badges_select_self"
 on public.user_badges for select
 using (auth.uid() = user_id);
 
-create policy if not exists "friend_requests_participant_select"
+drop policy if exists "friend_requests_participant_select" on public.friend_requests;
+create policy "friend_requests_participant_select"
 on public.friend_requests for select
 using (auth.uid() = sender_user_id or auth.uid() = receiver_user_id);
 
-create policy if not exists "friend_requests_sender_insert"
+drop policy if exists "friend_requests_sender_insert" on public.friend_requests;
+create policy "friend_requests_sender_insert"
 on public.friend_requests for insert
 with check (auth.uid() = sender_user_id);
 
-create policy if not exists "friend_requests_receiver_update"
+drop policy if exists "friend_requests_receiver_update" on public.friend_requests;
+create policy "friend_requests_receiver_update"
 on public.friend_requests for update
 using (auth.uid() = receiver_user_id)
 with check (auth.uid() = receiver_user_id);
 
-create policy if not exists "friendships_participant_select"
+drop policy if exists "friendships_participant_select" on public.friendships;
+create policy "friendships_participant_select"
 on public.friendships for select
 using (auth.uid() = user_id or auth.uid() = friend_user_id);
 
-create policy if not exists "activity_feed_events_friend_scope_select"
+drop policy if exists "activity_feed_events_friend_scope_select" on public.activity_feed_events;
+create policy "activity_feed_events_friend_scope_select"
 on public.activity_feed_events for select
 using (
   auth.uid() = user_id
@@ -875,7 +890,8 @@ using (
   )
 );
 
-create policy if not exists "security_events_select_self"
+drop policy if exists "security_events_select_self" on public.security_events;
+create policy "security_events_select_self"
 on public.security_events for select
 using (auth.uid() = user_id);
 

@@ -12,7 +12,16 @@
     "mobile:ios": "npm run ios --workspace @passport-quest/mobile",
     "mobile:android": "npm run android --workspace @passport-quest/mobile",
     "mobile:typecheck": "npm run typecheck --workspace @passport-quest/mobile",
-    "supabase:test": "supabase test db --project-dir supabase",
+    "supabase:cli": "DOCKER_HOST=unix:///tmp/docker.sock npx --yes supabase@2.53.4",
+    "supabase:up": "npm run supabase:cli -- start --workdir . --exclude vector --exclude logflare",
+    "supabase:reset": "npm run supabase:cli -- db reset --yes --workdir .",
+    "supabase:functions": "npm run supabase:cli -- functions serve --workdir .",
+    "supabase:status": "npm run supabase:cli -- status --workdir . -o pretty",
+    "supabase:test": "npm run supabase:cli -- test db --workdir .",
+    "local:up": "npm run supabase:up",
+    "local:reset": "npm run supabase:reset",
+    "local:functions": "npm run supabase:functions",
+    "local:status": "npm run supabase:status",
     "format": "prettier --write ."
   },
   "devDependencies": {

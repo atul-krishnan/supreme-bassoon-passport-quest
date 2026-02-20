@@ -46,19 +46,19 @@ npm install
 2. Start Supabase locally.
 
 ```bash
-supabase start --workdir supabase
+npm run local:up
 ```
 
 3. Apply migrations and seed data.
 
 ```bash
-supabase db reset --workdir supabase
+npm run local:reset
 ```
 
 4. Serve the Edge Function.
 
 ```bash
-supabase functions serve v1 --workdir supabase
+npm run local:functions
 ```
 
 5. Update `apps/mobile/app.json` `expo.extra.supabaseAnonKey` with your local anon key.
@@ -67,6 +67,12 @@ supabase functions serve v1 --workdir supabase
 
 ```bash
 npm run mobile:start
+```
+
+7. Optional status check.
+
+```bash
+npm run local:status
 ```
 
 ## Notes
