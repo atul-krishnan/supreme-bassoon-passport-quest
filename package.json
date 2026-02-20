@@ -1,0 +1,21 @@
+{
+  "name": "passport-quest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Passport Quest MVP monorepo (Bangalore-first, NYC-ready)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "mobile:start": "npm run start --workspace @passport-quest/mobile",
+    "mobile:ios": "npm run ios --workspace @passport-quest/mobile",
+    "mobile:android": "npm run android --workspace @passport-quest/mobile",
+    "mobile:typecheck": "npm run typecheck --workspace @passport-quest/mobile",
+    "supabase:test": "supabase test db --project-dir supabase",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  }
+}

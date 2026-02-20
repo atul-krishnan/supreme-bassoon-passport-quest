@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Passport Quest",
+    "slug": "passport-quest",
+    "scheme": "passportquest",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "plugins": ["expo-router", "expo-sqlite"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.passportquest.mobile"
+    },
+    "android": {
+      "package": "com.passportquest.mobile",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "extra": {
+      "apiBaseUrl": "http://127.0.0.1:54321/functions/v1/v1",
+      "supabaseUrl": "http://127.0.0.1:54321",
+      "supabaseAnonKey": "REPLACE_ME"
+    }
+  }
+}

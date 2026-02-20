@@ -1,0 +1,31 @@
+# Node
+node_modules/
+.npm/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+android/
+ios/
+
+# Build artifacts
+dist/
+build/
+coverage/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Supabase local
+supabase/.branches
+supabase/.temp
+supabase/.local
+
+# OS
+.DS_Store
