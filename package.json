@@ -22,6 +22,8 @@
     "local:reset": "npm run supabase:reset",
     "local:functions": "npm run supabase:functions",
     "local:status": "npm run supabase:status",
+    "security:audit": "npm audit --audit-level=high",
+    "security:audit:json": "npm audit --json",
     "format": "prettier --write ."
   },
   "devDependencies": {

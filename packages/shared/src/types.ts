@@ -61,14 +61,41 @@ export type BootstrapConfig = {
     maxAttemptsPerMinute: number;
   };
   featureFlags: Record<string, boolean>;
+  experiments?: Record<string, "control" | "treatment">;
+  notificationPolicy?: {
+    quietHours: {
+      startLocal: string;
+      endLocal: string;
+    };
+    timeZone: string;
+    pushEnabled: boolean;
+    suppressNow: boolean;
+  };
 };
 
 export type FriendRequestPayload = {
   receiverUserId: string;
 };
 
+export type FriendRequestByUsernamePayload = {
+  username: string;
+};
+
 export type FriendAcceptPayload = {
   requestId: string;
+};
+
+export type IncomingFriendRequest = {
+  requestId: string;
+  senderUserId: string;
+  senderUsername: string;
+  senderAvatarUrl?: string;
+  createdAt: string;
+  status: "pending" | "accepted" | "rejected" | "cancelled";
+};
+
+export type IncomingFriendRequestsResponse = {
+  requests: IncomingFriendRequest[];
 };
 
 export type NearbyQuestResponse = {
@@ -115,4 +142,52 @@ export type ProfileCompareResponse = {
     streakDays: number;
     badgeCount: number;
   };
+};
+
+export type UserSummaryResponse = {
+  user: {
+    id: string;
+    username: string;
+    avatarUrl?: string;
+    homeCityId?: CityId;
+  };
+  stats: {
+    xpTotal: number;
+    level: number;
+    streakDays: number;
+    questsCompleted: number;
+    badgeCount: number;
+  };
+};
+
+export type UserBadgeItem = {
+  key: string;
+  name: string;
+  description: string;
+  iconUrl?: string;
+  unlocked: boolean;
+  unlockedAt?: string;
+};
+
+export type UserBadgesResponse = {
+  badges: UserBadgeItem[];
+};
+
+export type UpdateProfileRequest = {
+  username?: string;
+  avatarUrl?: string | null;
+  homeCityId?: CityId;
+};
+
+export type RegisterPushTokenRequest = {
+  pushToken: string;
+  platform: "ios" | "android";
+  appVersion?: string;
+};
+
+export type RegisterPushTokenResponse = {
+  status: "registered";
+  token: string;
+  platform: "ios" | "android";
+  updatedAt: string;
 };

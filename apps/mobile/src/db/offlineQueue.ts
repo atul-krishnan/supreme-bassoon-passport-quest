@@ -12,6 +12,11 @@ export type OfflineEventRow = {
   nextRetryAt: string;
 };
 
+export type OfflineQueueSummary = {
+  pendingCount: number;
+  oldestPendingAt?: string;
+};
+
 async function getDb() {
   const db = await dbPromise;
   await db.execAsync(`
@@ -90,4 +95,22 @@ export async function markOfflineEventRetry(id: number, retryCount: number) {
     nextRetryAt,
     id
   );
+}
+
+export async function getOfflineQueueSummary(): Promise<OfflineQueueSummary> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{
+    pending_count: number;
+    oldest_pending_at: string | null;
+  }>(`
+    SELECT
+      COUNT(*) as pending_count,
+      MIN(created_at) as oldest_pending_at
+    FROM offline_events
+  `);
+
+  return {
+    pendingCount: row?.pending_count ?? 0,
+    oldestPendingAt: row?.oldest_pending_at ?? undefined,
+  };
 }

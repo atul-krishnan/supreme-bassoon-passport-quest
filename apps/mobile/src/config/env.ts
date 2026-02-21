@@ -4,6 +4,8 @@ export type AppEnv = {
   apiBaseUrl: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  posthogHost?: string;
+  posthogApiKey?: string;
 };
 
 function requireString(name: string, value: unknown): string {
@@ -15,8 +17,19 @@ function requireString(name: string, value: unknown): string {
 
 const extras = (Constants.expoConfig?.extra ?? {}) as Record<string, unknown>;
 
+function optionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export const env: AppEnv = {
   apiBaseUrl: requireString("apiBaseUrl", extras.apiBaseUrl),
   supabaseUrl: requireString("supabaseUrl", extras.supabaseUrl),
-  supabaseAnonKey: requireString("supabaseAnonKey", extras.supabaseAnonKey)
+  supabaseAnonKey: requireString("supabaseAnonKey", extras.supabaseAnonKey),
+  posthogHost: optionalString(extras.posthogHost),
+  posthogApiKey: optionalString(extras.posthogApiKey),
 };

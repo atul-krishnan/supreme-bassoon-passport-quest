@@ -1,15 +1,16 @@
 # Passport Quest
 
-Passport Quest MVP implementation scaffold (Bangalore-first, NYC-ready) using Expo React Native + Supabase.
+Passport Quest MVP v1 implementation scaffold (India-first: BLR pilot, DEL/PUNE post-gate) using Expo React Native + Supabase.
 
 ## What is implemented
 
 - Mobile app scaffold (`apps/mobile`) with:
 - Anonymous guest auth bootstrap (Supabase Auth).
+- Username onboarding for first-time guest sessions.
 - Nearby quests screen with location, map, and completion trigger.
 - SQLite offline queue for deferred quest completion sync.
-- Social screen for friend request/accept + feed fetch.
-- Profile screen for city switch (BLR/NYC staging) + bootstrap config.
+- Social screen with username-based friend request, incoming pending accepts, feed, and profile compare.
+- Profile screen with edit profile (username/avatar), badges, city switch (BLR/NYC staging), and offline sync status.
 - Shared API/contracts package (`packages/shared`).
 - Supabase schema + RLS + seeded BLR/NYC runtime config (`supabase/migrations`).
 - Supabase Edge Function router implementing v1 endpoints (`supabase/functions/v1`).
@@ -31,9 +32,15 @@ All routes are served by the Supabase Edge Function `v1` and map to:
 - `POST /v1/quests/complete`
 - `GET /v1/social/feed?limit={number}&cursor={string?}`
 - `POST /v1/social/friends/request`
+- `POST /v1/social/friends/request-by-username`
 - `POST /v1/social/friends/accept`
+- `GET /v1/social/friend-requests/incoming?status={pending|accepted|rejected|cancelled}`
 - `GET /v1/users/me/profile-compare?friendUserId={uuid}`
 - `GET /v1/config/bootstrap?cityId=blr|nyc`
+- `GET /v1/users/me/summary`
+- `GET /v1/users/me/badges`
+- `PATCH /v1/users/me/profile`
+- `POST /v1/notifications/register-token`
 
 ## Local setup
 
@@ -75,15 +82,28 @@ npm run mobile:start
 npm run local:status
 ```
 
+## Rollout strategy
+
+- Bangalore (`blr`) is the only production pilot city in MVP v1.
+- Delhi (`del`) and Pune (`pune`) are post-BLR gate rollout cities.
+- NYC stays staging-ready in code/contracts, not near-term rollout messaging.
+
 ## Notes
 
-- BLR is enabled for production pilot content.
-- NYC quest content is seeded but set inactive (`is_active = false`) for staging readiness.
 - Gameplay mutations are server-trusted via `complete_quest` security-definer RPC + idempotency key (`user_id`, `device_event_id`).
-- Anti-cheat thresholds and feature flags are city runtime config driven.
+- Anti-cheat thresholds, quiet hours, feature flags, and experiment variant resolution flow through bootstrap/runtime config.
+
+## Architecture docs
+
+- Architecture overview: `/Users/atulkrishnan/Documents/Passport Quest/docs/architecture.md`
+- ADR process: `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/README.md`
+- ADR template: `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/0000-template.md`
+- India rollout gate: `/Users/atulkrishnan/Documents/Passport Quest/docs/india-expansion-gate.md`
+- Trip context model: `/Users/atulkrishnan/Documents/Passport Quest/docs/trip-context-model.md`
+- v1.1/v1.2 roadmap: `/Users/atulkrishnan/Documents/Passport Quest/docs/roadmap-v1.1-v1.2.md`
 
 ## Next recommended steps
 
-- Add profile onboarding (`username`) and account linking UI.
-- Add push nudge scheduler + control holdout assignment.
-- Add load tests for completion p95 and offline sync success KPI.
+- Add DEL/PUNE post-gate migration slice and city content packs.
+- Add push nudge scheduler worker and KPI alerting automation.
+- Add deeper load tests for completion p95 and offline sync SLA.

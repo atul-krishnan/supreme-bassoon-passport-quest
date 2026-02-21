@@ -1,7 +1,7 @@
 import { env } from "../config/env";
 import { useSessionStore } from "../state/session";
 
-type HttpMethod = "GET" | "POST";
+type HttpMethod = "GET" | "POST" | "PATCH";
 
 type RequestOptions = {
   method: HttpMethod;
@@ -11,7 +11,6 @@ type RequestOptions = {
 };
 
 export async function apiRequest<T>(options: RequestOptions): Promise<T> {
-  const token = useSessionStore.getState().accessToken;
   const query = options.query
     ? `?${new URLSearchParams(
         Object.entries(options.query)
@@ -20,19 +19,49 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
       ).toString()}`
     : "";
 
-  const response = await fetch(`${env.apiBaseUrl}${options.path}${query}`, {
-    method: options.method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
+  const requestOnce = async (token: string | null) => {
+    const response = await fetch(`${env.apiBaseUrl}${options.path}${query}`, {
+      method: options.method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+    return {
+      response,
+      message: response.ok ? null : await response.text()
+    };
+  };
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`API ${options.path} failed (${response.status}): ${message}`);
+  let token = useSessionStore.getState().accessToken;
+  let attempt = await requestOnce(token);
+
+  const shouldRetryWithRefresh =
+    attempt.response.status === 401 &&
+    typeof attempt.message === "string" &&
+    /invalid jwt/i.test(attempt.message);
+
+  if (shouldRetryWithRefresh) {
+    const sessionStore = useSessionStore.getState();
+    let refreshedToken = await sessionStore.refreshAccessToken();
+
+    if (!refreshedToken) {
+      await sessionStore.bootstrapSession();
+      refreshedToken = useSessionStore.getState().accessToken;
+    }
+
+    if (refreshedToken) {
+      token = refreshedToken;
+      attempt = await requestOnce(token);
+    }
   }
 
-  return (await response.json()) as T;
+  if (!attempt.response.ok) {
+    throw new Error(
+      `API ${options.path} failed (${attempt.response.status}): ${attempt.message ?? "Unknown error"}`
+    );
+  }
+
+  return (await attempt.response.json()) as T;
 }

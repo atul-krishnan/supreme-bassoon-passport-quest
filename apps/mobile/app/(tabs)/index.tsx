@@ -1,26 +1,65 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { router } from "expo-router";
 import * as Location from "expo-location";
-import { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Pressable,
-  SafeAreaView,
-  Text,
-  View
-} from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-import type { CityId, CompleteQuestRequest, Quest } from "@passport-quest/shared";
-import { completeQuest, getNearbyQuests } from "../../src/api/endpoints";
-import { enqueueQuestCompletion } from "../../src/db/offlineQueue";
+import type { CityId, Quest } from "@passport-quest/shared";
+import { trackUiEvent } from "../../src/analytics/events";
+import { getNearbyQuests, getUserSummary } from "../../src/api/endpoints";
 import { useSessionStore } from "../../src/state/session";
+import { theme } from "../../src/theme";
+import {
+  EmptyState,
+  GlassCard,
+  InlineError,
+  LoadingShimmer,
+  QuestMiniCard,
+  ScreenContainer,
+  TopBar,
+  XPBar,
+} from "../../src/ui";
 
-const CITY_TEST_COORDS: Record<CityId, { lat: number; lng: number; label: string }> = {
+const CITY_TEST_COORDS: Record<
+  CityId,
+  { lat: number; lng: number; label: string }
+> = {
   blr: { lat: 12.9763, lng: 77.5929, label: "Bangalore" },
-  nyc: { lat: 40.7536, lng: -73.9832, label: "New York City" }
+  nyc: { lat: 40.7536, lng: -73.9832, label: "New York City" },
 };
 
-function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+const MAP_DARK_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#0b1024" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0b1024" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8ea2c7" }] },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#1b2748" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9fb5dc" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#071b3a" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "geometry",
+    stylers: [{ color: "#13203c" }],
+  },
+];
+
+function haversineMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const r = 6371000;
   const dLat = toRad(lat2 - lat1);
@@ -32,37 +71,73 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return 2 * r * Math.asin(Math.sqrt(a));
 }
 
-export default function QuestScreen() {
-  const queryClient = useQueryClient();
+function openQuestDetail(quest: Quest) {
+  trackUiEvent("map_open_quest", { questId: quest.id, cityId: quest.cityId });
+  router.push({
+    pathname: "/quest/[questId]",
+    params: {
+      questId: quest.id,
+      cityId: quest.cityId,
+      title: quest.title,
+      description: quest.description,
+      category: quest.category,
+      xpReward: String(quest.xpReward),
+      badgeKey: quest.badgeKey ?? "",
+      geofenceLat: String(quest.geofence.lat),
+      geofenceLng: String(quest.geofence.lng),
+      geofenceRadiusM: String(quest.geofence.radiusM),
+    },
+  });
+}
+
+export default function DiscoveryMapScreen() {
   const cityId = useSessionStore((state) => state.activeCityId);
-  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracyM: number } | null>(null);
+  const [coords, setCoords] = useState<{
+    lat: number;
+    lng: number;
+    accuracyM: number;
+  } | null>(null);
   const radiusM = 1200;
   const cityAnchor = CITY_TEST_COORDS[cityId];
-  const distanceFromCityAnchorM =
-    coords === null ? null : haversineMeters(coords.lat, coords.lng, cityAnchor.lat, cityAnchor.lng);
-  const isFarFromSelectedCity = distanceFromCityAnchorM !== null && distanceFromCityAnchorM > 100000;
 
-  const requestDeviceLocation = async () => {
+  const requestDeviceLocation = useCallback(async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
     if (permission.status !== "granted") {
-      Alert.alert("Location required", "Allow location to fetch nearby quests.");
+      setCoords({
+        lat: cityAnchor.lat,
+        lng: cityAnchor.lng,
+        accuracyM: 8,
+      });
       return;
     }
 
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced
-    });
+    try {
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
 
-    setCoords({
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-      accuracyM: position.coords.accuracy ?? 999
-    });
-  };
+      setCoords({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracyM: position.coords.accuracy ?? 999,
+      });
+    } catch {
+      setCoords({
+        lat: cityAnchor.lat,
+        lng: cityAnchor.lng,
+        accuracyM: 8,
+      });
+    }
+  }, [cityAnchor.lat, cityAnchor.lng]);
 
   useEffect(() => {
     void requestDeviceLocation();
-  }, []);
+  }, [requestDeviceLocation]);
+
+  const summaryQuery = useQuery({
+    queryKey: ["user-summary"],
+    queryFn: () => getUserSummary(),
+  });
 
   const nearbyQuery = useQuery({
     queryKey: ["nearby-quests", cityId, coords?.lat, coords?.lng, radiusM],
@@ -72,144 +147,177 @@ export default function QuestScreen() {
         cityId,
         lat: coords!.lat,
         lng: coords!.lng,
-        radiusM
-      })
+        radiusM,
+      }),
   });
 
-  const completeMutation = useMutation({
-    mutationFn: async (quest: Quest) => {
-      if (!coords) {
-        throw new Error("No location available");
-      }
+  const distanceFromCityAnchorM =
+    coords === null
+      ? null
+      : haversineMeters(coords.lat, coords.lng, cityAnchor.lat, cityAnchor.lng);
+  const isFarFromSelectedCity =
+    distanceFromCityAnchorM !== null && distanceFromCityAnchorM > 100000;
 
-      const payload: CompleteQuestRequest = {
-        questId: quest.id,
-        occurredAt: new Date().toISOString(),
-        location: {
-          lat: coords.lat,
-          lng: coords.lng,
-          accuracyM: coords.accuracyM
-        },
-        deviceEventId: `${Date.now()}-${Math.random().toString(16).slice(2)}`
-      };
-
-      try {
-        return await completeQuest(payload);
-      } catch {
-        await enqueueQuestCompletion(payload);
-        return {
-          status: "accepted",
-          reason: "queued_offline"
-        } as const;
-      }
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["nearby-quests", cityId] });
-    }
-  });
-
-  const region = useMemo(
-    () =>
-      coords
-        ? {
-            latitude: coords.lat,
-            longitude: coords.lng,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02
-          }
-        : undefined,
-    [coords]
+  const mapRegion = useMemo(
+    () => ({
+      latitude: coords?.lat ?? cityAnchor.lat,
+      longitude: coords?.lng ?? cityAnchor.lng,
+      latitudeDelta: cityId === "blr" ? 0.1 : 0.07,
+      longitudeDelta: cityId === "blr" ? 0.1 : 0.07,
+    }),
+    [cityAnchor.lat, cityAnchor.lng, cityId, coords?.lat, coords?.lng],
   );
+
+  const featuredQuest = nearbyQuery.data?.quests?.[0];
+
+  const handleUseTestLocation = () => {
+    setCoords({
+      lat: cityAnchor.lat,
+      lng: cityAnchor.lng,
+      accuracyM: 8,
+    });
+    trackUiEvent("map_use_test_location", { cityId });
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, padding: 16, gap: 12 }}>
-      <Text style={{ fontSize: 22, fontWeight: "700" }}>Nearby Quests ({cityId.toUpperCase()})</Text>
-      {isFarFromSelectedCity ? (
-        <View style={{ backgroundColor: "#FEF3C7", borderRadius: 10, padding: 10 }}>
-          <Text style={{ color: "#92400E" }}>
-            Your simulator location is far from {cityAnchor.label}. Use the test location button below.
-          </Text>
-        </View>
-      ) : null}
-      {__DEV__ ? (
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            onPress={() =>
-              setCoords({
-                lat: cityAnchor.lat,
-                lng: cityAnchor.lng,
-                accuracyM: 8
-              })
-            }
-            style={{
-              backgroundColor: "#111827",
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 8
-            }}
+    <ScreenContainer padded={false}>
+      <View style={styles.header}>
+        <TopBar title="Discovery Map" subtitle={cityAnchor.label} />
+        <GlassCard>
+          <XPBar
+            value={summaryQuery.data?.stats.xpTotal ?? 0}
+            max={Math.max(100, (summaryQuery.data?.stats.level ?? 1) * 200)}
+            label={`Level ${summaryQuery.data?.stats.level ?? 1} Explorer`}
+          />
+        </GlassCard>
+      </View>
+
+      <View style={styles.body}>
+        {isFarFromSelectedCity ? (
+          <GlassCard style={styles.bannerCard}>
+            <Text style={styles.bannerText}>
+              You are far from {cityAnchor.label}. Use test location to preview
+              nearby quests.
+            </Text>
+            <View style={{ height: theme.spacing.xs }} />
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleUseTestLocation}
+              style={styles.bannerButton}
+            >
+              <Text style={styles.bannerButtonLabel}>
+                Use {cityAnchor.label} test location
+              </Text>
+            </Pressable>
+          </GlassCard>
+        ) : null}
+
+        <View style={styles.mapWrap}>
+          <MapView
+            style={styles.map}
+            customMapStyle={MAP_DARK_STYLE}
+            initialRegion={mapRegion}
+            region={mapRegion}
           >
-            <Text style={{ color: "white", fontWeight: "600" }}>Use {cityAnchor.label} test location</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              void requestDeviceLocation();
-            }}
-            style={{
-              backgroundColor: "#E5E7EB",
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 8
-            }}
-          >
-            <Text style={{ color: "#111827", fontWeight: "600" }}>Use device location</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {region ? (
-        <View style={{ height: 220, borderRadius: 12, overflow: "hidden" }}>
-          <MapView style={{ flex: 1 }} region={region}>
-            <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} title="You" />
+            {coords ? (
+              <Marker
+                coordinate={{ latitude: coords.lat, longitude: coords.lng }}
+                title="You are here"
+                pinColor={theme.colors.accentCyan}
+              />
+            ) : null}
+            {(nearbyQuery.data?.quests ?? []).map((quest) => (
+              <Marker
+                key={quest.id}
+                coordinate={{
+                  latitude: Number(quest.geofence.lat),
+                  longitude: Number(quest.geofence.lng),
+                }}
+                title={quest.title}
+                description={`${quest.xpReward} XP reward`}
+                pinColor={theme.colors.accentPurple}
+                onCalloutPress={() => openQuestDetail(quest)}
+              />
+            ))}
           </MapView>
         </View>
-      ) : (
-        <Text>Getting GPS fix...</Text>
-      )}
 
-      {nearbyQuery.isLoading && <Text>Loading quests...</Text>}
-      {nearbyQuery.error && <Text>Failed to load quests: {(nearbyQuery.error as Error).message}</Text>}
+        {nearbyQuery.isLoading ? (
+          <LoadingShimmer label="Finding nearby quests..." />
+        ) : null}
+        {nearbyQuery.error ? (
+          <InlineError
+            message={`Could not load quests right now. ${String((nearbyQuery.error as Error).message)}`}
+          />
+        ) : null}
 
-      <FlatList
-        data={nearbyQuery.data?.quests ?? []}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Pressable
-            style={{
-              borderWidth: 1,
-              borderColor: "#ddd",
-              borderRadius: 10,
-              padding: 12,
-              marginBottom: 8,
-              backgroundColor: "white"
+        {featuredQuest ? (
+          <QuestMiniCard
+            quest={{
+              id: featuredQuest.id,
+              title: featuredQuest.title,
+              subtitle: featuredQuest.description,
+              xpReward: featuredQuest.xpReward,
+              badgeLabel: featuredQuest.badgeKey
+                ? `${featuredQuest.badgeKey} Badge`
+                : undefined,
+              category: featuredQuest.category,
+              status: "nearby",
             }}
-            onPress={() => completeMutation.mutate(item)}
-          >
-            <Text style={{ fontSize: 16, fontWeight: "600" }}>{item.title}</Text>
-            <Text style={{ color: "#555", marginTop: 4 }}>{item.description}</Text>
-            <Text style={{ marginTop: 6 }}>Reward: {item.xpReward} XP</Text>
-          </Pressable>
-        )}
-        ListEmptyComponent={
-          nearbyQuery.isSuccess ? <Text>No quests near current location.</Text> : null
-        }
-      />
-
-      {completeMutation.isPending && <Text>Submitting completion...</Text>}
-      {completeMutation.data && (
-        <Text>
-          Last completion: {completeMutation.data.status}
-          {completeMutation.data.reason ? ` (${completeMutation.data.reason})` : ""}
-        </Text>
-      )}
-    </SafeAreaView>
+            onPress={() => openQuestDetail(featuredQuest)}
+            onStart={() => openQuestDetail(featuredQuest)}
+          />
+        ) : nearbyQuery.isSuccess ? (
+          <EmptyState
+            title="No quests nearby right now"
+            description="Move around or widen your search."
+          />
+        ) : null}
+      </View>
+    </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    gap: theme.spacing.sm,
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    gap: theme.spacing.sm,
+  },
+  bannerCard: {
+    paddingVertical: theme.spacing.sm,
+  },
+  bannerText: {
+    color: theme.colors.warning,
+    fontSize: theme.typography.body.fontSize,
+    lineHeight: theme.typography.body.lineHeight,
+    fontWeight: "600",
+  },
+  bannerButton: {
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  bannerButtonLabel: {
+    color: theme.colors.warning,
+    fontWeight: "700",
+  },
+  mapWrap: {
+    height: 300,
+    borderRadius: theme.radius.xl,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  map: {
+    flex: 1,
+  },
+});
