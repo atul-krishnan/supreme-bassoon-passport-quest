@@ -10,9 +10,9 @@ Passport Quest MVP v1 implementation scaffold (India-first: BLR pilot, DEL/PUNE 
 - Nearby quests screen with location, map, and completion trigger.
 - SQLite offline queue for deferred quest completion sync.
 - Social screen with username-based friend request, incoming pending accepts, feed, and profile compare.
-- Profile screen with edit profile (username/avatar), badges, city switch (BLR/NYC staging), and offline sync status.
+- Profile screen with edit profile (username/avatar), badges, Bangalore pilot runtime info, and offline sync status.
 - Shared API/contracts package (`packages/shared`).
-- Supabase schema + RLS + seeded BLR/NYC runtime config (`supabase/migrations`).
+- Supabase schema + RLS + city runtime config (`supabase/migrations`).
 - Supabase Edge Function router implementing v1 endpoints (`supabase/functions/v1`).
 - SQL tests (`supabase/tests/mvp.sql`).
 
@@ -28,7 +28,7 @@ Passport Quest MVP v1 implementation scaffold (India-first: BLR pilot, DEL/PUNE 
 
 All routes are served by the Supabase Edge Function `v1` and map to:
 
-- `GET /v1/quests/nearby?cityId=blr|nyc&lat={number}&lng={number}&radiusM={number}`
+- `GET /v1/quests/nearby?cityId={cityId}&lat={number}&lng={number}&radiusM={number}`
 - `POST /v1/quests/complete`
 - `GET /v1/social/feed?limit={number}&cursor={string?}`
 - `POST /v1/social/friends/request`
@@ -36,7 +36,7 @@ All routes are served by the Supabase Edge Function `v1` and map to:
 - `POST /v1/social/friends/accept`
 - `GET /v1/social/friend-requests/incoming?status={pending|accepted|rejected|cancelled}`
 - `GET /v1/users/me/profile-compare?friendUserId={uuid}`
-- `GET /v1/config/bootstrap?cityId=blr|nyc`
+- `GET /v1/config/bootstrap?cityId={cityId}`
 - `GET /v1/users/me/summary`
 - `GET /v1/users/me/badges`
 - `PATCH /v1/users/me/profile`
@@ -86,7 +86,7 @@ npm run local:status
 
 - Bangalore (`blr`) is the only production pilot city in MVP v1.
 - Delhi (`del`) and Pune (`pune`) are post-BLR gate rollout cities.
-- NYC stays staging-ready in code/contracts, not near-term rollout messaging.
+- NYC staging compatibility is retained in backend contracts only.
 
 ## Notes
 

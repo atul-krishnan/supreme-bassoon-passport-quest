@@ -57,6 +57,7 @@ flowchart LR
 - `Profile` (`app/(tabs)/profile.tsx`)
 - Quest detail route:
 - `app/quest/[questId].tsx`
+- App-facing city UX is fixed to Bangalore (`blr`) for MVP pilot validation.
 
 ### 4.2 UI system
 
@@ -223,7 +224,7 @@ sequenceDiagram
 - Rollout order: `blr -> del -> pune -> international`.
 - Keep Bangalore as default live pilot (`cityId=blr`).
 - Keep Delhi (`del`) and Pune (`pune`) as post-gate rollout cities.
-- Keep NYC in staging/content-prep path only.
+- Keep NYC in backend staging/content-prep path only (not exposed in app UI).
 - Use `city_runtime_config` for anti-cheat, quiet hours, and feature flags.
 
 ### 9.3 Change governance

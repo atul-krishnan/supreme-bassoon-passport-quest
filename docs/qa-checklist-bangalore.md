@@ -36,7 +36,8 @@
 1. Edit username and avatar URL.
 2. Confirm profile summary updates after save.
 3. Verify badge case locked/unlocked visuals.
-4. Verify BLR/NYC switch updates runtime config view.
+4. Verify app has no NYC city selection surface.
+5. Verify profile runtime info shows Bangalore as active pilot city.
 
 ## Notifications and experiments
 
