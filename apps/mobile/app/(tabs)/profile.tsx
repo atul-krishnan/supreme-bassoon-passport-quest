@@ -16,7 +16,7 @@ import {
   getUserSummary,
   updateMyProfile,
 } from "../../src/api/endpoints";
-import { useSessionStore } from "../../src/state/session";
+import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
 import { useOfflineSyncState } from "../../src/state/offlineSync";
 import { theme } from "../../src/theme";
 import {
@@ -47,8 +47,6 @@ function formatSyncTime(iso: string | null): string {
 
 export default function ProfileScreen() {
   const queryClient = useQueryClient();
-  const cityId = useSessionStore((state) => state.activeCityId);
-  const setCity = useSessionStore((state) => state.setCity);
 
   const pendingCount = useOfflineSyncState((state) => state.pendingCount);
   const isSyncing = useOfflineSyncState((state) => state.isSyncing);
@@ -71,8 +69,8 @@ export default function ProfileScreen() {
   });
 
   const configQuery = useQuery({
-    queryKey: ["bootstrap-config", cityId],
-    queryFn: () => getBootstrapConfig(cityId),
+    queryKey: ["bootstrap-config", APP_CITY_ID],
+    queryFn: () => getBootstrapConfig(APP_CITY_ID),
   });
 
   useEffect(() => {
@@ -247,37 +245,11 @@ export default function ProfileScreen() {
           ) : null}
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Dev City Switch</Text>
+        <Text style={styles.sectionTitle}>Pilot City</Text>
         <GlassCard style={styles.cityCard}>
-          <Text style={styles.cityLabel}>Active city: {cityId.toUpperCase()}</Text>
-          <View style={styles.cityButtons}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setCity("blr");
-                trackUiEvent("profile_switch_city", { cityId: "blr" });
-              }}
-              style={[
-                styles.cityButton,
-                cityId === "blr" ? styles.cityButtonActive : undefined,
-              ]}
-            >
-              <Text style={styles.cityButtonLabel}>Use BLR</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setCity("nyc");
-                trackUiEvent("profile_switch_city", { cityId: "nyc" });
-              }}
-              style={[
-                styles.cityButton,
-                cityId === "nyc" ? styles.cityButtonActive : undefined,
-              ]}
-            >
-              <Text style={styles.cityButtonLabel}>Use NYC (staging)</Text>
-            </Pressable>
-          </View>
+          <Text style={styles.cityLabel}>
+            Active city: {APP_CITY_ANCHOR.label} ({APP_CITY_ID.toUpperCase()})
+          </Text>
 
           {configQuery.data ? (
             <Text style={styles.runtimeHint}>
@@ -415,25 +387,6 @@ const styles = StyleSheet.create({
   },
   cityLabel: {
     color: theme.colors.textSecondary,
-  },
-  cityButtons: {
-    flexDirection: "row",
-    gap: theme.spacing.xs,
-  },
-  cityButton: {
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  cityButtonActive: {
-    borderColor: theme.colors.accentGreen,
-    backgroundColor: "#123A31",
-  },
-  cityButtonLabel: {
-    color: theme.colors.textPrimary,
-    fontWeight: "700",
   },
   runtimeHint: {
     color: theme.colors.textMuted,

@@ -4,10 +4,10 @@ import * as Location from "expo-location";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-import type { CityId, Quest } from "@passport-quest/shared";
+import type { Quest } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { getNearbyQuests, getUserSummary } from "../../src/api/endpoints";
-import { useSessionStore } from "../../src/state/session";
+import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
 import { theme } from "../../src/theme";
 import {
   EmptyState,
@@ -19,14 +19,6 @@ import {
   TopBar,
   XPBar,
 } from "../../src/ui";
-
-const CITY_TEST_COORDS: Record<
-  CityId,
-  { lat: number; lng: number; label: string }
-> = {
-  blr: { lat: 12.9763, lng: 77.5929, label: "Bangalore" },
-  nyc: { lat: 40.7536, lng: -73.9832, label: "New York City" },
-};
 
 const MAP_DARK_STYLE = [
   { elementType: "geometry", stylers: [{ color: "#0b1024" }] },
@@ -91,14 +83,14 @@ function openQuestDetail(quest: Quest) {
 }
 
 export default function DiscoveryMapScreen() {
-  const cityId = useSessionStore((state) => state.activeCityId);
+  const cityId = APP_CITY_ID;
+  const cityAnchor = APP_CITY_ANCHOR;
   const [coords, setCoords] = useState<{
     lat: number;
     lng: number;
     accuracyM: number;
   } | null>(null);
   const radiusM = 1200;
-  const cityAnchor = CITY_TEST_COORDS[cityId];
 
   const requestDeviceLocation = useCallback(async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -162,10 +154,10 @@ export default function DiscoveryMapScreen() {
     () => ({
       latitude: coords?.lat ?? cityAnchor.lat,
       longitude: coords?.lng ?? cityAnchor.lng,
-      latitudeDelta: cityId === "blr" ? 0.1 : 0.07,
-      longitudeDelta: cityId === "blr" ? 0.1 : 0.07,
+      latitudeDelta: 0.1,
+      longitudeDelta: 0.1,
     }),
-    [cityAnchor.lat, cityAnchor.lng, cityId, coords?.lat, coords?.lng],
+    [cityAnchor.lat, cityAnchor.lng, coords?.lat, coords?.lng],
   );
 
   const featuredQuest = nearbyQuery.data?.quests?.[0];
