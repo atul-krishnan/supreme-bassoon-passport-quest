@@ -17,6 +17,7 @@ import {
   getUserSummary,
   registerPushToken,
 } from "../src/api/endpoints";
+import { APP_CITY_ID } from "../src/config/city";
 import { useSessionStore } from "../src/state/session";
 import { useOfflineSync } from "../src/hooks/useOfflineSync";
 
@@ -24,7 +25,6 @@ export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
   const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
   const isBootstrapped = useSessionStore((state) => state.isBootstrapped);
-  const activeCityId = useSessionStore((state) => state.activeCityId);
   const setNeedsOnboarding = useSessionStore((state) => state.setNeedsOnboarding);
   const { flushQueue } = useOfflineSync();
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -162,10 +162,10 @@ export default function RootLayout() {
       return;
     }
 
-    void getBootstrapConfig(activeCityId).catch(() => {
+    void getBootstrapConfig(APP_CITY_ID).catch(() => {
       // Bootstrap config is best-effort at app load.
     });
-  }, [activeCityId, isBootstrapped]);
+  }, [isBootstrapped]);
 
   if (!isBootstrapped || isProfileGateLoading) {
     return (
