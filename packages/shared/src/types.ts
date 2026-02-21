@@ -73,6 +73,129 @@ export type BootstrapConfig = {
   };
 };
 
+export type TripContextType = "solo" | "couple" | "family" | "friends";
+
+export type TripPace = "relaxed" | "balanced" | "active";
+
+export type TripBudget = "low" | "medium" | "high";
+
+export type TripTransportMode =
+  | "walk"
+  | "public_transit"
+  | "bike"
+  | "car"
+  | "mixed";
+
+export type TripContextStatus = "active" | "completed" | "cancelled";
+
+export type QuestExperienceTags = {
+  familySafe: boolean;
+  dateFriendly: boolean;
+  kidFriendly: boolean;
+  wheelchairAccessible: boolean;
+  lowCrowd: boolean;
+  indoorOption: boolean;
+};
+
+export type TripContext = {
+  tripContextId: string;
+  userId: string;
+  cityId: CityId;
+  contextType: TripContextType;
+  groupSize: number;
+  withKids: boolean;
+  pace: TripPace;
+  budget: TripBudget;
+  transportMode: TripTransportMode;
+  timeBudgetMin: number;
+  startLocal?: string;
+  vibeTags: string[];
+  constraints: Record<string, unknown>;
+  status: TripContextStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StartTripContextRequest = {
+  cityId: CityId;
+  contextType: TripContextType;
+  groupSize?: number;
+  withKids?: boolean;
+  pace?: TripPace;
+  budget?: TripBudget;
+  transportMode?: TripTransportMode;
+  timeBudgetMin?: number;
+  startLocal?: string;
+  vibeTags?: string[];
+  constraints?: Record<string, unknown>;
+};
+
+export type StartTripContextResponse = {
+  tripContextId: string;
+  status: "active";
+  cityId: CityId;
+  contextType: TripContextType;
+  createdAt: string;
+};
+
+export type UpdateTripContextRequest = Partial<{
+  contextType: TripContextType;
+  groupSize: number;
+  withKids: boolean;
+  pace: TripPace;
+  budget: TripBudget;
+  transportMode: TripTransportMode;
+  timeBudgetMin: number;
+  startLocal: string;
+  vibeTags: string[];
+  constraints: Record<string, unknown>;
+}>;
+
+export type UpdateTripContextResponse = TripContext;
+
+export type EndTripContextRequest = {
+  status?: "completed" | "cancelled";
+};
+
+export type EndTripContextResponse = {
+  tripContextId: string;
+  status: "completed" | "cancelled";
+  endedAt: string;
+};
+
+export type RecommendedQuestItem = Quest & {
+  tags: QuestExperienceTags;
+  whyRecommended: string[];
+  score: number;
+};
+
+export type RecommendedQuestsResponse = {
+  tripContextId: string;
+  cityId: CityId;
+  quests: RecommendedQuestItem[];
+};
+
+export type RecommendationFeedbackType =
+  | "shown"
+  | "opened"
+  | "started"
+  | "completed"
+  | "dismissed"
+  | "saved";
+
+export type RecommendationFeedbackRequest = {
+  tripContextId?: string;
+  questId: string;
+  feedbackType: RecommendationFeedbackType;
+  metadata?: Record<string, unknown>;
+};
+
+export type RecommendationFeedbackResponse = {
+  status: "recorded";
+  feedbackId?: string;
+  createdAt?: string;
+};
+
 export type FriendRequestPayload = {
   receiverUserId: string;
 };
