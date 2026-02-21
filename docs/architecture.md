@@ -1,7 +1,7 @@
 # Passport Quest Architecture (Living Document)
 
 Last updated: February 21, 2026  
-Scope: India-first MVP v1 (Bangalore production, Delhi/Pune post-gate)
+Scope: India-first MVP v1 + v1.1 backend foundation (Bangalore production, Delhi/Pune post-gate)
 
 ## 1. Architecture goals
 
@@ -89,6 +89,11 @@ flowchart LR
 - `GET /v1/users/me/badges` (additive read endpoint)
 - `PATCH /v1/users/me/profile` (additive profile mutation endpoint)
 - `POST /v1/notifications/register-token` (additive push registration endpoint)
+- `POST /v1/trips/context/start` (v1.1 additive)
+- `PATCH /v1/trips/context/{tripContextId}` (v1.1 additive)
+- `POST /v1/trips/context/{tripContextId}/end` (v1.1 additive)
+- `GET /v1/quests/recommended` (v1.1 additive)
+- `POST /v1/recommendations/feedback` (v1.1 additive)
 
 ### 5.2 Core RPC / server logic
 
@@ -101,6 +106,9 @@ flowchart LR
 - `get_bootstrap_config`: city runtime config payload.
 - `assign_experiment_variant`: deterministic holdout assignment persisted per user.
 - `upsert_user_push_token`: push token storage for nudge delivery.
+- `start_trip_context`, `update_trip_context`, `end_trip_context`: trip-intent session lifecycle.
+- `get_recommended_quests`: rule-based quest ranking using city/activity + context tags + freshness.
+- `record_recommendation_feedback`: feedback signal capture for recommendation quality loop.
 
 ### 5.3 Security model
 
@@ -138,6 +146,13 @@ flowchart LR
 
 - `user_push_tokens`
 - `user_experiments`
+
+### Recommendation/trip context (v1.1 foundation)
+
+- `user_preferences`
+- `trip_context_sessions`
+- `quest_experience_tags`
+- `recommendation_feedback`
 
 ### Security telemetry
 
@@ -202,6 +217,17 @@ sequenceDiagram
 2. Receiver accepts from incoming pending list (`/social/friends/accept` + `/social/friend-requests/incoming`).
 3. Feed events become visible through `/social/feed`.
 4. Profile compare uses friend-only scope (`/users/me/profile-compare`).
+
+### 7.4 Trip context and recommendations (v1.1 foundation)
+
+1. Start a context (`/trips/context/start`) with outing intent (`solo/couple/family/friends`) and constraints.
+2. Mid-outing update is partial (`/trips/context/{tripContextId}`), preserving untouched values.
+3. Recommendations query (`/quests/recommended`) ranks active city quests by:
+- distance proxy (recent accepted location when available),
+- context-tag match (`family_safe`, `date_friendly`, etc.),
+- freshness score.
+4. End context (`/trips/context/{tripContextId}/end`) transitions active session to `completed` or `cancelled`.
+5. Interaction feedback (`/recommendations/feedback`) is stored for future ranker tuning.
 
 ## 8. Reliability and performance seams
 

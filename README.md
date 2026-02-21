@@ -41,6 +41,11 @@ All routes are served by the Supabase Edge Function `v1` and map to:
 - `GET /v1/users/me/badges`
 - `PATCH /v1/users/me/profile`
 - `POST /v1/notifications/register-token`
+- `POST /v1/trips/context/start`
+- `PATCH /v1/trips/context/{tripContextId}`
+- `POST /v1/trips/context/{tripContextId}/end`
+- `GET /v1/quests/recommended?cityId={cityId}&tripContextId={uuid}&limit={number}`
+- `POST /v1/recommendations/feedback`
 
 ## Local setup
 
@@ -92,6 +97,7 @@ npm run local:status
 
 - Gameplay mutations are server-trusted via `complete_quest` security-definer RPC + idempotency key (`user_id`, `device_event_id`).
 - Anti-cheat thresholds, quiet hours, feature flags, and experiment variant resolution flow through bootstrap/runtime config.
+- v1.1 backend foundation is additive-only: trip-context schema, recommendation RPCs, new edge routes, and DB contract tests.
 
 ## Architecture docs
 
@@ -101,6 +107,8 @@ npm run local:status
 - India rollout gate: `/Users/atulkrishnan/Documents/Passport Quest/docs/india-expansion-gate.md`
 - Trip context model: `/Users/atulkrishnan/Documents/Passport Quest/docs/trip-context-model.md`
 - v1.1/v1.2 roadmap: `/Users/atulkrishnan/Documents/Passport Quest/docs/roadmap-v1.1-v1.2.md`
+- Bangalore beta summary (latest): `/Users/atulkrishnan/Documents/Passport Quest/docs/beta-readiness-summary-2026-02-21.md`
+- v1.1 mobile integration handoff: `/Users/atulkrishnan/Documents/Passport Quest/docs/v11-mobile-integration-handoff.md`
 
 ## Next recommended steps
 

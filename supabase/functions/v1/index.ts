@@ -13,7 +13,37 @@ const ALLOWED_FRIEND_REQUEST_STATUSES = new Set([
   "rejected",
   "cancelled",
 ]);
+const ALLOWED_TRIP_CONTEXT_TYPES = new Set([
+  "solo",
+  "couple",
+  "family",
+  "friends",
+]);
+const ALLOWED_TRIP_PACE_VALUES = new Set([
+  "relaxed",
+  "balanced",
+  "active",
+]);
+const ALLOWED_TRIP_BUDGET_VALUES = new Set(["low", "medium", "high"]);
+const ALLOWED_TRIP_TRANSPORT_VALUES = new Set([
+  "walk",
+  "public_transit",
+  "bike",
+  "car",
+  "mixed",
+]);
+const ALLOWED_TRIP_END_STATUS_VALUES = new Set(["completed", "cancelled"]);
+const ALLOWED_RECOMMENDATION_FEEDBACK_TYPES = new Set([
+  "shown",
+  "opened",
+  "started",
+  "completed",
+  "dismissed",
+  "saved",
+]);
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,32}$/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function makeServiceClient(req: Request): DbClient {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -57,6 +87,14 @@ function parseFriendRequestStatus(searchParams: URLSearchParams) {
   return status;
 }
 
+function parseRouteUuidParam(route: string, pattern: RegExp): string | null {
+  const match = route.match(pattern);
+  if (!match || !match[1]) {
+    return null;
+  }
+  return UUID_PATTERN.test(match[1]) ? match[1] : null;
+}
+
 function sanitizeUsername(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -66,6 +104,54 @@ function sanitizeUsername(value: unknown): string | null {
     return null;
   }
   return trimmed;
+}
+
+function parseEnumValue(
+  value: unknown,
+  allowed: Set<string>,
+  fieldName: string,
+): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${fieldName} must be a string`);
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!allowed.has(normalized)) {
+    throw new Error(`${fieldName} has an invalid value`);
+  }
+  return normalized;
+}
+
+function parseOptionalTimestamp(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+    throw new Error(`${fieldName} must be an ISO timestamp`);
+  }
+  return value;
+}
+
+function parseOptionalStringArray(value: unknown, fieldName: string): string[] | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`${fieldName} must be an array of strings`);
+  }
+  return value;
+}
+
+function parseOptionalObject(value: unknown, fieldName: string): Record<string, unknown> | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an object`);
+  }
+  return value as Record<string, unknown>;
 }
 
 function computeDeterministicControlAssignment(seed: string, controlPercent: number) {
@@ -486,6 +572,396 @@ async function handleRegisterPushToken(
   return jsonResponse(data);
 }
 
+async function handleStartTripContext(
+  req: Request,
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    return errorResponse(400, (error as Error).message);
+  }
+
+  const cityId =
+    typeof body.cityId === "string" ? body.cityId.trim().toLowerCase() : null;
+  if (!cityId || !ALLOWED_CITY_IDS.has(cityId)) {
+    return errorResponse(400, "cityId must be one of: blr, nyc");
+  }
+
+  let contextType: string | null = null;
+  let pace: string | null = null;
+  let budget: string | null = null;
+  let transportMode: string | null = null;
+  let startLocal: string | null = null;
+  let vibeTags: string[] | null = null;
+  let constraints: Record<string, unknown> | null = null;
+
+  try {
+    contextType = parseEnumValue(
+      body.contextType,
+      ALLOWED_TRIP_CONTEXT_TYPES,
+      "contextType",
+    );
+    pace = parseEnumValue(body.pace, ALLOWED_TRIP_PACE_VALUES, "pace");
+    budget = parseEnumValue(body.budget, ALLOWED_TRIP_BUDGET_VALUES, "budget");
+    transportMode = parseEnumValue(
+      body.transportMode,
+      ALLOWED_TRIP_TRANSPORT_VALUES,
+      "transportMode",
+    );
+    startLocal = parseOptionalTimestamp(body.startLocal, "startLocal");
+    vibeTags = parseOptionalStringArray(body.vibeTags, "vibeTags");
+    constraints = parseOptionalObject(body.constraints, "constraints");
+  } catch (error) {
+    return errorResponse(400, (error as Error).message);
+  }
+
+  if (!contextType) {
+    return errorResponse(400, "contextType is required");
+  }
+
+  let groupSize = 1;
+  if (body.groupSize !== undefined) {
+    if (
+      typeof body.groupSize !== "number" ||
+      !Number.isInteger(body.groupSize) ||
+      body.groupSize < 1 ||
+      body.groupSize > 20
+    ) {
+      return errorResponse(400, "groupSize must be an integer between 1 and 20");
+    }
+    groupSize = body.groupSize;
+  }
+
+  let withKids = false;
+  if (body.withKids !== undefined) {
+    if (typeof body.withKids !== "boolean") {
+      return errorResponse(400, "withKids must be a boolean");
+    }
+    withKids = body.withKids;
+  }
+
+  let timeBudgetMin = 180;
+  if (body.timeBudgetMin !== undefined) {
+    if (
+      typeof body.timeBudgetMin !== "number" ||
+      !Number.isInteger(body.timeBudgetMin) ||
+      body.timeBudgetMin < 30 ||
+      body.timeBudgetMin > 720
+    ) {
+      return errorResponse(400, "timeBudgetMin must be an integer between 30 and 720");
+    }
+    timeBudgetMin = body.timeBudgetMin;
+  }
+
+  const { data, error } = await db.rpc("start_trip_context", {
+    p_user_id: userId,
+    p_city_id: cityId,
+    p_context_type: contextType,
+    p_group_size: groupSize,
+    p_with_kids: withKids,
+    p_pace: pace ?? "balanced",
+    p_budget: budget ?? "medium",
+    p_transport_mode: transportMode ?? "mixed",
+    p_time_budget_min: timeBudgetMin,
+    p_start_local: startLocal,
+    p_vibe_tags: vibeTags ?? [],
+    p_constraints: constraints ?? {},
+  });
+
+  if (error) {
+    if (/invalid_city/i.test(error.message)) {
+      return errorResponse(400, "cityId is invalid or inactive");
+    }
+    return errorResponse(500, error.message);
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleUpdateTripContext(
+  req: Request,
+  db: DbClient,
+  userId: string,
+  tripContextId: string,
+): Promise<Response> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    return errorResponse(400, (error as Error).message);
+  }
+
+  const allowedFields = [
+    "contextType",
+    "groupSize",
+    "withKids",
+    "pace",
+    "budget",
+    "transportMode",
+    "timeBudgetMin",
+    "startLocal",
+    "vibeTags",
+    "constraints",
+  ];
+  const hasPatch = allowedFields.some((field) =>
+    Object.prototype.hasOwnProperty.call(body, field)
+  );
+  if (!hasPatch) {
+    return errorResponse(400, "No trip context fields to update");
+  }
+
+  let contextType: string | null = null;
+  let pace: string | null = null;
+  let budget: string | null = null;
+  let transportMode: string | null = null;
+  let startLocal: string | null = null;
+  let vibeTags: string[] | null = null;
+  let constraints: Record<string, unknown> | null = null;
+
+  try {
+    contextType = parseEnumValue(
+      body.contextType,
+      ALLOWED_TRIP_CONTEXT_TYPES,
+      "contextType",
+    );
+    pace = parseEnumValue(body.pace, ALLOWED_TRIP_PACE_VALUES, "pace");
+    budget = parseEnumValue(body.budget, ALLOWED_TRIP_BUDGET_VALUES, "budget");
+    transportMode = parseEnumValue(
+      body.transportMode,
+      ALLOWED_TRIP_TRANSPORT_VALUES,
+      "transportMode",
+    );
+    startLocal = parseOptionalTimestamp(body.startLocal, "startLocal");
+    vibeTags = parseOptionalStringArray(body.vibeTags, "vibeTags");
+    constraints = parseOptionalObject(body.constraints, "constraints");
+  } catch (error) {
+    return errorResponse(400, (error as Error).message);
+  }
+
+  let groupSize: number | null = null;
+  if (body.groupSize !== undefined) {
+    if (
+      typeof body.groupSize !== "number" ||
+      !Number.isInteger(body.groupSize) ||
+      body.groupSize < 1 ||
+      body.groupSize > 20
+    ) {
+      return errorResponse(400, "groupSize must be an integer between 1 and 20");
+    }
+    groupSize = body.groupSize;
+  }
+
+  let withKids: boolean | null = null;
+  if (body.withKids !== undefined) {
+    if (typeof body.withKids !== "boolean") {
+      return errorResponse(400, "withKids must be a boolean");
+    }
+    withKids = body.withKids;
+  }
+
+  let timeBudgetMin: number | null = null;
+  if (body.timeBudgetMin !== undefined) {
+    if (
+      typeof body.timeBudgetMin !== "number" ||
+      !Number.isInteger(body.timeBudgetMin) ||
+      body.timeBudgetMin < 30 ||
+      body.timeBudgetMin > 720
+    ) {
+      return errorResponse(400, "timeBudgetMin must be an integer between 30 and 720");
+    }
+    timeBudgetMin = body.timeBudgetMin;
+  }
+
+  const { data, error } = await db.rpc("update_trip_context", {
+    p_user_id: userId,
+    p_trip_context_id: tripContextId,
+    p_context_type: contextType,
+    p_group_size: groupSize,
+    p_with_kids: withKids,
+    p_pace: pace,
+    p_budget: budget,
+    p_transport_mode: transportMode,
+    p_time_budget_min: timeBudgetMin,
+    p_start_local: startLocal,
+    p_vibe_tags: vibeTags,
+    p_constraints: constraints,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  if (!data) {
+    return errorResponse(404, "trip_context_not_found_or_inactive");
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleEndTripContext(
+  req: Request,
+  db: DbClient,
+  userId: string,
+  tripContextId: string,
+): Promise<Response> {
+  let status = "completed";
+  try {
+    const body = await readJsonBody(req);
+    const parsed = parseEnumValue(
+      body.status,
+      ALLOWED_TRIP_END_STATUS_VALUES,
+      "status",
+    );
+    if (parsed) {
+      status = parsed;
+    }
+  } catch (error) {
+    return errorResponse(400, (error as Error).message);
+  }
+
+  const { data, error } = await db.rpc("end_trip_context", {
+    p_user_id: userId,
+    p_trip_context_id: tripContextId,
+    p_status: status,
+  });
+
+  if (error) {
+    if (/invalid_status/i.test(error.message)) {
+      return errorResponse(400, "status must be completed or cancelled");
+    }
+    return errorResponse(500, error.message);
+  }
+
+  if (!data) {
+    return errorResponse(404, "trip_context_not_found_or_inactive");
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleRecommendedQuests(
+  db: DbClient,
+  userId: string,
+  url: URL,
+): Promise<Response> {
+  const cityId = parseCityId(url.searchParams);
+  const tripContextId = url.searchParams.get("tripContextId");
+  if (!tripContextId || !UUID_PATTERN.test(tripContextId)) {
+    return errorResponse(400, "tripContextId must be a valid UUID");
+  }
+
+  const limit = Number(url.searchParams.get("limit") ?? "20");
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return errorResponse(400, "limit must be a positive number");
+  }
+
+  const normalizedLimit = Math.min(50, Math.floor(limit));
+
+  const { data, error } = await db.rpc("get_recommended_quests", {
+    p_user_id: userId,
+    p_city_id: cityId,
+    p_trip_context_id: tripContextId,
+    p_limit: normalizedLimit,
+  });
+
+  if (error) {
+    if (/trip_context_not_found/i.test(error.message)) {
+      return errorResponse(404, "trip_context_not_found");
+    }
+    if (/trip_context_city_mismatch/i.test(error.message)) {
+      return errorResponse(400, "trip_context_city_mismatch");
+    }
+    return errorResponse(500, error.message);
+  }
+
+  return jsonResponse({
+    tripContextId,
+    cityId,
+    quests: (data ?? []).map((row: Record<string, unknown>) => ({
+      id: row.quest_id,
+      cityId: row.city_id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      geofence: row.geofence,
+      xpReward: row.xp_reward,
+      badgeKey: row.badge_key ?? undefined,
+      activeFrom: row.active_from,
+      activeTo: row.active_to ?? undefined,
+      tags: row.tags_json ?? {},
+      whyRecommended: Array.isArray(row.why_recommended)
+        ? row.why_recommended
+        : [],
+      score: typeof row.score === "number" ? row.score : Number(row.score ?? 0),
+    })),
+  });
+}
+
+async function handleRecommendationFeedback(
+  req: Request,
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req);
+  } catch (error) {
+    return errorResponse(400, (error as Error).message);
+  }
+
+  const questId = body.questId;
+  const tripContextId = body.tripContextId;
+  let feedbackType: string | null = null;
+  let metadata: Record<string, unknown> | null = null;
+
+  if (typeof questId !== "string" || !UUID_PATTERN.test(questId)) {
+    return errorResponse(400, "questId must be a valid UUID");
+  }
+
+  if (
+    tripContextId !== undefined &&
+    tripContextId !== null &&
+    (typeof tripContextId !== "string" || !UUID_PATTERN.test(tripContextId))
+  ) {
+    return errorResponse(400, "tripContextId must be a valid UUID");
+  }
+
+  try {
+    feedbackType = parseEnumValue(
+      body.feedbackType,
+      ALLOWED_RECOMMENDATION_FEEDBACK_TYPES,
+      "feedbackType",
+    );
+    metadata = parseOptionalObject(body.metadata, "metadata");
+  } catch (error) {
+    return errorResponse(400, (error as Error).message);
+  }
+
+  if (!feedbackType) {
+    return errorResponse(400, "feedbackType is required");
+  }
+
+  const { data, error } = await db.rpc("record_recommendation_feedback", {
+    p_user_id: userId,
+    p_trip_context_id: tripContextId ?? null,
+    p_quest_id: questId,
+    p_feedback_type: feedbackType,
+    p_metadata: metadata ?? {},
+  });
+
+  if (error) {
+    if (/trip_context_not_found/i.test(error.message)) {
+      return errorResponse(404, "trip_context_not_found");
+    }
+    return errorResponse(500, error.message);
+  }
+
+  return jsonResponse(data);
+}
+
 async function resolveExperimentAssignments(
   db: DbClient,
   userId: string,
@@ -713,12 +1189,25 @@ serve(async (req: Request) => {
   }
 
   try {
+    const tripContextUpdateId = parseRouteUuidParam(
+      route,
+      /^\/trips\/context\/([^/]+)$/,
+    );
+    const tripContextEndId = parseRouteUuidParam(
+      route,
+      /^\/trips\/context\/([^/]+)\/end$/,
+    );
+
     if (req.method === "GET" && route === "/quests/nearby") {
       return await handleNearby(req, db, url);
     }
 
     if (req.method === "POST" && route === "/quests/complete") {
       return await handleComplete(req, db, user.id);
+    }
+
+    if (req.method === "GET" && route === "/quests/recommended") {
+      return await handleRecommendedQuests(db, user.id, url);
     }
 
     if (req.method === "GET" && route === "/social/feed") {
@@ -766,6 +1255,22 @@ serve(async (req: Request) => {
 
     if (req.method === "GET" && route === "/config/bootstrap") {
       return await handleBootstrap(db, user.id, url);
+    }
+
+    if (req.method === "POST" && route === "/trips/context/start") {
+      return await handleStartTripContext(req, db, user.id);
+    }
+
+    if (req.method === "PATCH" && tripContextUpdateId) {
+      return await handleUpdateTripContext(req, db, user.id, tripContextUpdateId);
+    }
+
+    if (req.method === "POST" && tripContextEndId) {
+      return await handleEndTripContext(req, db, user.id, tripContextEndId);
+    }
+
+    if (req.method === "POST" && route === "/recommendations/feedback") {
+      return await handleRecommendationFeedback(req, db, user.id);
     }
 
     return errorResponse(404, `Unknown route: ${req.method} ${route}`);

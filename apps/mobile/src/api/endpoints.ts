@@ -3,12 +3,21 @@ import type {
   CityId,
   CompleteQuestRequest,
   CompleteQuestResponse,
+  EndTripContextRequest,
+  EndTripContextResponse,
   IncomingFriendRequestsResponse,
   NearbyQuestResponse,
   ProfileCompareResponse,
+  RecommendationFeedbackRequest,
+  RecommendationFeedbackResponse,
+  RecommendedQuestsResponse,
   RegisterPushTokenRequest,
   RegisterPushTokenResponse,
   SocialFeedResponse,
+  StartTripContextRequest,
+  StartTripContextResponse,
+  UpdateTripContextRequest,
+  UpdateTripContextResponse,
   UpdateProfileRequest,
   UserBadgesResponse,
   UserSummaryResponse,
@@ -118,6 +127,62 @@ export function registerPushToken(payload: RegisterPushTokenRequest) {
   return apiRequest<RegisterPushTokenResponse>({
     method: "POST",
     path: "/notifications/register-token",
+    body: payload,
+  });
+}
+
+export function startTripContext(payload: StartTripContextRequest) {
+  return apiRequest<StartTripContextResponse>({
+    method: "POST",
+    path: "/trips/context/start",
+    body: payload,
+  });
+}
+
+export function updateTripContext(
+  tripContextId: string,
+  payload: UpdateTripContextRequest,
+) {
+  return apiRequest<UpdateTripContextResponse>({
+    method: "PATCH",
+    path: `/trips/context/${tripContextId}`,
+    body: payload,
+  });
+}
+
+export function endTripContext(
+  tripContextId: string,
+  payload: EndTripContextRequest = {},
+) {
+  return apiRequest<EndTripContextResponse>({
+    method: "POST",
+    path: `/trips/context/${tripContextId}/end`,
+    body: payload,
+  });
+}
+
+export function getRecommendedQuests(params: {
+  cityId: CityId;
+  tripContextId: string;
+  limit?: number;
+}) {
+  return apiRequest<RecommendedQuestsResponse>({
+    method: "GET",
+    path: "/quests/recommended",
+    query: {
+      cityId: params.cityId,
+      tripContextId: params.tripContextId,
+      limit: params.limit,
+    },
+  });
+}
+
+export function recordRecommendationFeedback(
+  payload: RecommendationFeedbackRequest,
+) {
+  return apiRequest<RecommendationFeedbackResponse>({
+    method: "POST",
+    path: "/recommendations/feedback",
     body: payload,
   });
 }
