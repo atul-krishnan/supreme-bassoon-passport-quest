@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EAS_PROJECT_ID: ${{ secrets.EAS_STAGING_PROJECT_ID }}
+      STAGING_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -89,18 +90,26 @@ jobs:
           npm run contracts:smoke
 
       - name: Build iOS staging artifact (optional)
-        if: ${{ env.EAS_PROJECT_ID != '' }}
+        if: ${{ env.EAS_PROJECT_ID != '' && env.STAGING_SENTRY_DSN != '' }}
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          API_BASE_URL: ${{ secrets.STAGING_API_BASE_URL }}
+          SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
           APP_ENV: staging
           RELEASE_SHA: ${{ github.sha }}
+        working-directory: apps/mobile
         run: |
+          if [ -z "$API_BASE_URL" ]; then
+            export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"
+          fi
           npx --yes eas-cli@14.5.0 build --platform ios --profile staging --non-interactive --no-wait
 
-      - name: Skip iOS staging artifact (EAS project not configured)
-        if: ${{ env.EAS_PROJECT_ID == '' }}
-        run: echo "Skipping staging iOS build because EAS_STAGING_PROJECT_ID secret is not set."
+      - name: Skip iOS staging artifact (EAS or Sentry not configured)
+        if: ${{ env.EAS_PROJECT_ID == '' || env.STAGING_SENTRY_DSN == '' }}
+        run: echo "Skipping staging iOS build because EAS_STAGING_PROJECT_ID or STAGING_SENTRY_DSN secret is not set."
 
       - name: Run Maestro iOS smoke suite (optional)
         if: env.MAESTRO_APP_FILE != ''
