@@ -39,8 +39,9 @@ Optional:
 - `STAGING_API_BASE_URL` (defaults to `${STAGING_SUPABASE_URL}/functions/v1/v1`)
 - `PROD_API_BASE_URL` (defaults to `${PROD_SUPABASE_URL}/functions/v1/v1`)
 - `MAESTRO_APP_FILE` (if set, staging workflow runs Maestro smoke test with this app artifact)
-- `STAGING_SMOKE_TEST_EMAIL` and `STAGING_SMOKE_TEST_PASSWORD` (only needed if anonymous auth and sign-up fallback are both unavailable in staging)
-- `PROD_SMOKE_TEST_EMAIL` and `PROD_SMOKE_TEST_PASSWORD` (same purpose for production smoke checks)
+- `STAGING_SMOKE_TEST_EMAIL` and `STAGING_SMOKE_TEST_PASSWORD` (optional explicit test user creds for staging smoke checks)
+- `PROD_SMOKE_TEST_EMAIL` and `PROD_SMOKE_TEST_PASSWORD` (optional explicit test user creds for production smoke checks)
+- `PROD_SUPABASE_SERVICE_ROLE_KEY` (recommended so production smoke checks can auto-provision an ephemeral confirmed user when anonymous auth is disabled)
 
 Quick audit command:
 
@@ -71,6 +72,11 @@ Optional:
 gh secret set STAGING_API_BASE_URL --body "https://your-staging-ref.supabase.co/functions/v1/v1"
 gh secret set PROD_API_BASE_URL --body "https://your-prod-ref.supabase.co/functions/v1/v1"
 gh secret set MAESTRO_APP_FILE --body "/path/to/staging-app.apk-or.ipa"
+gh secret set STAGING_SMOKE_TEST_EMAIL --body "smoke-staging@example.com"
+gh secret set STAGING_SMOKE_TEST_PASSWORD --body "set-a-strong-password"
+gh secret set PROD_SMOKE_TEST_EMAIL --body "smoke-prod@example.com"
+gh secret set PROD_SMOKE_TEST_PASSWORD --body "set-a-strong-password"
+gh secret set PROD_SUPABASE_SERVICE_ROLE_KEY --body "service_role_xxx"
 ```
 
 ## Repository variables

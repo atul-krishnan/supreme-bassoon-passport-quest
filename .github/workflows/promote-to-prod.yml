@@ -75,6 +75,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
           API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           CITY_ID: blr
           SMOKE_TEST_EMAIL: ${{ secrets.PROD_SMOKE_TEST_EMAIL }}

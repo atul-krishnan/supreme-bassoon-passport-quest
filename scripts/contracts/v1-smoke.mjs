@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
 const publishableKey =
   process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const apiBaseUrl =
   process.env.API_BASE_URL ?? `${supabaseUrl}/functions/v1/v1`;
 const cityId = process.env.CITY_ID ?? "blr";
@@ -32,6 +33,28 @@ async function http(path, token) {
   }
 
   return { response, json, text };
+}
+
+function createServiceRoleClient() {
+  if (!serviceRoleKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+function generateSmokeCredentials() {
+  const entropy = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  return {
+    email: `ci_smoke_${entropy}@example.com`,
+    password: `PQ_ci_${entropy}_A9`,
+  };
 }
 
 async function issueSmokeAccessToken(supabase) {
@@ -64,9 +87,34 @@ async function issueSmokeAccessToken(supabase) {
     throw new Error(`Anonymous sign-in failed: ${anonymousErrorMessage || "unknown"}`);
   }
 
-  const entropy = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  const email = `ci_smoke_${entropy}@passportquest.local`;
-  const password = `PQ_ci_${entropy}`;
+  const adminSupabase = createServiceRoleClient();
+  let adminProvisionError = "";
+  if (adminSupabase) {
+    const serviceRoleCreds = generateSmokeCredentials();
+    const createUser = await adminSupabase.auth.admin.createUser({
+      email: serviceRoleCreds.email,
+      password: serviceRoleCreds.password,
+      email_confirm: true,
+      user_metadata: { source: "ci_smoke" },
+    });
+
+    if (!createUser.error) {
+      const serviceRoleSignIn = await supabase.auth.signInWithPassword({
+        email: serviceRoleCreds.email,
+        password: serviceRoleCreds.password,
+      });
+      if (!serviceRoleSignIn.error && serviceRoleSignIn.data.session?.access_token) {
+        return serviceRoleSignIn.data.session.access_token;
+      }
+
+      adminProvisionError =
+        `serviceRoleSignIn=${serviceRoleSignIn.error?.message ?? "unknown"}`;
+    } else {
+      adminProvisionError = `serviceRoleCreateUser=${createUser.error.message}`;
+    }
+  }
+
+  const { email, password } = generateSmokeCredentials();
 
   const passwordSignUp = await supabase.auth.signUp({
     email,
@@ -89,9 +137,10 @@ async function issueSmokeAccessToken(supabase) {
   throw new Error(
     [
       "Anonymous auth disabled and fallback password sign-in failed.",
+      adminProvisionError,
       `signUp=${passwordSignUp.error?.message ?? "unknown"}`,
       `signIn=${passwordSignIn.error?.message ?? "unknown"}`,
-      "Set SMOKE_TEST_EMAIL and SMOKE_TEST_PASSWORD secrets if needed.",
+      "Set SMOKE_TEST_EMAIL/SMOKE_TEST_PASSWORD or SUPABASE_SERVICE_ROLE_KEY if needed.",
     ].join(" "),
   );
 }
