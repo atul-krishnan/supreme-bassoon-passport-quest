@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EAS_PROJECT_ID: ${{ secrets.EAS_STAGING_PROJECT_ID }}
-      STAGING_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
+      STAGING_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN || secrets.SENTRY_DSN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -109,7 +109,7 @@ jobs:
 
       - name: Skip iOS staging artifact (EAS or Sentry not configured)
         if: ${{ env.EAS_PROJECT_ID == '' || env.STAGING_SENTRY_DSN == '' }}
-        run: echo "Skipping staging iOS build because EAS_STAGING_PROJECT_ID or STAGING_SENTRY_DSN secret is not set."
+        run: echo "Skipping staging iOS build because EAS_STAGING_PROJECT_ID is missing or no DSN was found in STAGING_SENTRY_DSN/SENTRY_DSN."
 
       - name: Run Maestro iOS smoke suite (optional)
         if: env.MAESTRO_APP_FILE != ''

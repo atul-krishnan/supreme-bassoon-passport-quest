@@ -36,10 +36,11 @@ Required:
 
 Optional:
 
+- `SENTRY_DSN` (single shared DSN fallback used by both staging and production workflows)
 - `EAS_STAGING_PROJECT_ID` (required to run staging EAS build step in CI; if missing, staging workflow skips iOS build)
 - `EAS_PRODUCTION_PROJECT_ID` (required for production promotion workflow iOS build step)
-- `STAGING_SENTRY_DSN` (required only for staging iOS build step; staging deploy/smoke still run without it)
-- `PROD_SENTRY_DSN` (required for production promotion workflow because production build needs `APP_ENV=production` config)
+- `STAGING_SENTRY_DSN` (optional override for staging; if absent, workflow falls back to `SENTRY_DSN`)
+- `PROD_SENTRY_DSN` (optional override for production; if absent, workflow falls back to `SENTRY_DSN`)
 - `STAGING_API_BASE_URL` (defaults to `${STAGING_SUPABASE_URL}/functions/v1/v1`)
 - `PROD_API_BASE_URL` (defaults to `${PROD_SUPABASE_URL}/functions/v1/v1`)
 - `MAESTRO_APP_FILE` (if set, staging workflow runs Maestro smoke test with this app artifact)
@@ -76,6 +77,7 @@ Optional:
 gh secret set STAGING_API_BASE_URL --body "https://your-staging-ref.supabase.co/functions/v1/v1"
 gh secret set PROD_API_BASE_URL --body "https://your-prod-ref.supabase.co/functions/v1/v1"
 gh secret set MAESTRO_APP_FILE --body "/path/to/staging-app.apk-or.ipa"
+gh secret set SENTRY_DSN --body "https://<key>@<org>.ingest.sentry.io/<id>"
 gh secret set EAS_STAGING_PROJECT_ID --body "your-eas-staging-project-id"
 gh secret set EAS_PRODUCTION_PROJECT_ID --body "your-eas-production-project-id"
 gh secret set STAGING_SENTRY_DSN --body "https://<key>@<org>.ingest.sentry.io/<id>"

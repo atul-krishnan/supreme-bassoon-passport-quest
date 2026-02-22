@@ -37,12 +37,12 @@ jobs:
           PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           PROD_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
-          PROD_SENTRY_DSN: ${{ secrets.PROD_SENTRY_DSN }}
+          PROD_EFFECTIVE_SENTRY_DSN: ${{ secrets.PROD_SENTRY_DSN || secrets.SENTRY_DSN }}
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EAS_PRODUCTION_PROJECT_ID: ${{ secrets.EAS_PRODUCTION_PROJECT_ID }}
         run: |
           missing=0
-          for key in SUPABASE_ACCESS_TOKEN PROD_PROJECT_REF PROD_DB_PASSWORD PROD_SUPABASE_URL PROD_SUPABASE_PUBLISHABLE_KEY PROD_SENTRY_DSN EAS_TOKEN EAS_PRODUCTION_PROJECT_ID; do
+          for key in SUPABASE_ACCESS_TOKEN PROD_PROJECT_REF PROD_DB_PASSWORD PROD_SUPABASE_URL PROD_SUPABASE_PUBLISHABLE_KEY PROD_EFFECTIVE_SENTRY_DSN EAS_TOKEN EAS_PRODUCTION_PROJECT_ID; do
             if [ -z "${!key}" ]; then
               echo "Missing required secret: $key"
               missing=1
@@ -96,7 +96,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
           API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
-          SENTRY_DSN: ${{ secrets.PROD_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.PROD_SENTRY_DSN || secrets.SENTRY_DSN }}
           APP_ENV: production
           RELEASE_SHA: ${{ github.event.inputs.release_sha || github.sha }}
         working-directory: apps/mobile
