@@ -18,6 +18,7 @@ async function http(path, token) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
+      apikey: publishableKey,
       "Content-Type": "application/json",
     },
   });
