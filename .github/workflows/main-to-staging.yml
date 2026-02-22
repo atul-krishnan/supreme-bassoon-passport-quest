@@ -97,7 +97,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
           API_BASE_URL: ${{ secrets.STAGING_API_BASE_URL }}
-          SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN }}
+          SENTRY_DSN: ${{ env.STAGING_SENTRY_DSN }}
           APP_ENV: staging
           RELEASE_SHA: ${{ github.sha }}
         working-directory: apps/mobile
