@@ -42,6 +42,7 @@ REQUIRED_VARS=(
 
 OPTIONAL_VARS=(
   AUTO_SUBMIT_TESTFLIGHT
+  ENABLE_STAGING_IOS_BUILD
 )
 
 if ! command -v gh >/dev/null 2>&1; then

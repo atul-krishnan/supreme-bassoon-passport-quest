@@ -9,6 +9,7 @@ jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     env:
+      ENABLE_STAGING_IOS_BUILD: ${{ vars.ENABLE_STAGING_IOS_BUILD || 'false' }}
       EAS_PROJECT_ID: ${{ secrets.EAS_STAGING_PROJECT_ID }}
       STAGING_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN || secrets.SENTRY_DSN }}
     steps:
@@ -90,9 +91,7 @@ jobs:
           npm run contracts:smoke
 
       - name: Build iOS staging artifact (optional)
-        id: ios_staging_build
-        if: ${{ env.EAS_PROJECT_ID != '' && env.STAGING_SENTRY_DSN != '' }}
-        continue-on-error: true
+        if: ${{ env.ENABLE_STAGING_IOS_BUILD == 'true' && env.EAS_PROJECT_ID != '' && env.STAGING_SENTRY_DSN != '' }}
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
@@ -110,15 +109,16 @@ jobs:
           fi
           npx --yes eas-cli@14.5.0 build --platform ios --profile staging --non-interactive --no-wait
 
-      - name: Warn when staging iOS build is not ready
-        if: ${{ steps.ios_staging_build.outcome == 'failure' }}
+      - name: Skip iOS staging artifact
+        if: ${{ env.ENABLE_STAGING_IOS_BUILD != 'true' }}
         run: |
-          echo "Staging deploy passed, but iOS build failed (likely missing EAS iOS credentials for non-interactive mode)."
-          echo "Run one interactive EAS iOS credential setup locally before requiring CI build as a gate."
+          echo "Skipping staging iOS build (ENABLE_STAGING_IOS_BUILD is not true)."
 
-      - name: Skip iOS staging artifact (EAS or Sentry not configured)
-        if: ${{ env.EAS_PROJECT_ID == '' || env.STAGING_SENTRY_DSN == '' }}
-        run: echo "Skipping staging iOS build because EAS_STAGING_PROJECT_ID is missing or no DSN was found in STAGING_SENTRY_DSN/SENTRY_DSN."
+      - name: Require build prerequisites when enabled
+        if: ${{ env.ENABLE_STAGING_IOS_BUILD == 'true' && (env.EAS_PROJECT_ID == '' || env.STAGING_SENTRY_DSN == '') }}
+        run: |
+          echo "ENABLE_STAGING_IOS_BUILD=true but EAS_STAGING_PROJECT_ID or STAGING_SENTRY_DSN/SENTRY_DSN is missing."
+          exit 1
 
       - name: Run Maestro iOS smoke suite (optional)
         if: env.MAESTRO_APP_FILE != ''

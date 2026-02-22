@@ -69,7 +69,7 @@ Sequence:
 1. Push migrations to staging DB.
 2. Deploy `v1` Edge Function.
 3. Run API smoke checks (`/health`, bootstrap, summary).
-4. Build iOS staging artifact (`eas build --profile staging`).
+4. Optionally build iOS staging artifact (`eas build --profile staging`) only when repo variable `ENABLE_STAGING_IOS_BUILD=true`.
 5. Optionally run Maestro smoke suite.
 
 ### Staging gates
@@ -134,3 +134,9 @@ For each staging candidate attach:
 2. QA checklist pass/fail notes.
 3. Screenshots for onboarding, quest completion, offline replay, social flow.
 4. KPI snapshot for latency/SLA/duplicates.
+
+Template command:
+
+```bash
+npm run ops:uat:evidence -- --release-sha=<commit_sha> --build-id=<build_identifier> --author="<name>"
+```

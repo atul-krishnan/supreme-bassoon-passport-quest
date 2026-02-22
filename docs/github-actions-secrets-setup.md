@@ -50,7 +50,7 @@ Optional:
 - `PROD_SMOKE_TEST_EMAIL` and `PROD_SMOKE_TEST_PASSWORD` (optional explicit test user creds for production smoke checks)
 - `PROD_SUPABASE_SERVICE_ROLE_KEY` (recommended so production smoke checks can auto-provision an ephemeral confirmed user when anonymous auth is disabled)
 
-Note: staging iOS build is non-blocking in CI for lean pilot mode. If EAS iOS credentials are not configured yet, deploy + smoke gates pass and the workflow emits a warning for the build step.
+Note: staging iOS build is disabled by default for lean pilot mode. Set `ENABLE_STAGING_IOS_BUILD=true` (repository variable) only when you are ready to enforce iOS CI builds.
 
 Quick audit command:
 
@@ -107,6 +107,7 @@ Required for `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/sta
 Optional:
 
 - `AUTO_SUBMIT_TESTFLIGHT` (`true` to auto-submit after production build)
+- `ENABLE_STAGING_IOS_BUILD` (`true` to enable staging iOS build step in `Main To Staging`; default `false`)
 
 Example commands:
 
@@ -116,6 +117,7 @@ gh variable set STAGING_NEARBY_P95_MS --body "650"
 gh variable set STAGING_OFFLINE_SYNC_SLA_PCT --body "99.2"
 gh variable set STAGING_CRASH_FREE_SESSIONS_PCT --body "99.7"
 gh variable set AUTO_SUBMIT_TESTFLIGHT --body "false"
+gh variable set ENABLE_STAGING_IOS_BUILD --body "false"
 ```
 
 ## Environment protection rules
