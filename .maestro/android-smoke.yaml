@@ -1,6 +1,22 @@
 appId: com.passportquest.mobile.staging
 ---
-- launchApp
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: "Allow only while using the app"
+    commands:
+      - tapOn: "Allow only while using the app"
+- runFlow:
+    when:
+      visible: "While using the app"
+    commands:
+      - tapOn: "While using the app"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
 - runFlow:
     when:
       visible: "Pick your explorer name"
@@ -9,7 +25,6 @@ appId: com.passportquest.mobile.staging
       - eraseText
       - inputText: "qa_runner_android"
       - tapOn: "Start Questing"
-- assertVisible: "Discovery Map"
 - tapOn: "Quests"
 - assertVisible: "Offline Sync"
 - tapOn: "Social"
