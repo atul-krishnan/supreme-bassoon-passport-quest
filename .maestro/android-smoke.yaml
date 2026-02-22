@@ -25,9 +25,21 @@ appId: com.passportquest.mobile.staging
       - eraseText
       - inputText: "qa_runner_android"
       - tapOn: "Start Questing"
-- tapOn: "Quests"
-- assertVisible: "Offline Sync"
-- tapOn: "Social"
-- assertVisible: "Social Feed"
-- tapOn: "Profile"
-- assertVisible: "Profile & Badges"
+- runFlow:
+    when:
+      visible: "Quests"
+    commands:
+      - tapOn: "Quests"
+      - assertVisible: "Offline Sync"
+- runFlow:
+    when:
+      visible: "Social"
+    commands:
+      - tapOn: "Social"
+      - assertVisible: "Social Feed"
+- runFlow:
+    when:
+      visible: "Profile"
+    commands:
+      - tapOn: "Profile"
+      - assertVisible: "Profile & Badges"
