@@ -140,3 +140,7 @@ Template command:
 ```bash
 npm run ops:uat:evidence -- --release-sha=<commit_sha> --build-id=<build_identifier> --author="<name>"
 ```
+
+Evidence folder guide:
+
+- `/Users/atulkrishnan/Documents/Passport Quest/docs/uat-evidence/README.md`
