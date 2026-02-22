@@ -77,6 +77,8 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
           API_BASE_URL: ${{ secrets.STAGING_API_BASE_URL }}
           CITY_ID: blr
+          SMOKE_TEST_EMAIL: ${{ secrets.STAGING_SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.STAGING_SMOKE_TEST_PASSWORD }}
         run: |
           if [ -z "$API_BASE_URL" ]; then
             export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"

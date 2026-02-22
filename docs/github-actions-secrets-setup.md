@@ -39,6 +39,8 @@ Optional:
 - `STAGING_API_BASE_URL` (defaults to `${STAGING_SUPABASE_URL}/functions/v1/v1`)
 - `PROD_API_BASE_URL` (defaults to `${PROD_SUPABASE_URL}/functions/v1/v1`)
 - `MAESTRO_APP_FILE` (if set, staging workflow runs Maestro smoke test with this app artifact)
+- `STAGING_SMOKE_TEST_EMAIL` and `STAGING_SMOKE_TEST_PASSWORD` (only needed if anonymous auth and sign-up fallback are both unavailable in staging)
+- `PROD_SMOKE_TEST_EMAIL` and `PROD_SMOKE_TEST_PASSWORD` (same purpose for production smoke checks)
 
 Quick audit command:
 

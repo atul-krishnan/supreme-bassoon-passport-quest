@@ -34,13 +34,73 @@ async function http(path, token) {
   return { response, json, text };
 }
 
+async function issueSmokeAccessToken(supabase) {
+  const anonymousSignIn = await supabase.auth.signInAnonymously();
+  const anonymousToken = anonymousSignIn.data.session?.access_token;
+
+  if (!anonymousSignIn.error && anonymousToken) {
+    return anonymousToken;
+  }
+
+  const fallbackEmail = process.env.SMOKE_TEST_EMAIL;
+  const fallbackPassword = process.env.SMOKE_TEST_PASSWORD;
+
+  if (fallbackEmail && fallbackPassword) {
+    const passwordSignIn = await supabase.auth.signInWithPassword({
+      email: fallbackEmail,
+      password: fallbackPassword,
+    });
+    if (!passwordSignIn.error && passwordSignIn.data.session?.access_token) {
+      return passwordSignIn.data.session.access_token;
+    }
+  }
+
+  const anonymousErrorMessage = anonymousSignIn.error?.message ?? "";
+  const anonymousDisabled = /anonymous sign-ins are disabled/i.test(
+    anonymousErrorMessage,
+  );
+
+  if (!anonymousDisabled) {
+    throw new Error(`Anonymous sign-in failed: ${anonymousErrorMessage || "unknown"}`);
+  }
+
+  const entropy = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const email = `ci_smoke_${entropy}@passportquest.local`;
+  const password = `PQ_ci_${entropy}`;
+
+  const passwordSignUp = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (!passwordSignUp.error && passwordSignUp.data.session?.access_token) {
+    return passwordSignUp.data.session.access_token;
+  }
+
+  const passwordSignIn = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (!passwordSignIn.error && passwordSignIn.data.session?.access_token) {
+    return passwordSignIn.data.session.access_token;
+  }
+
+  throw new Error(
+    [
+      "Anonymous auth disabled and fallback password sign-in failed.",
+      `signUp=${passwordSignUp.error?.message ?? "unknown"}`,
+      `signIn=${passwordSignIn.error?.message ?? "unknown"}`,
+      "Set SMOKE_TEST_EMAIL and SMOKE_TEST_PASSWORD secrets if needed.",
+    ].join(" "),
+  );
+}
+
 async function main() {
   assert(Boolean(publishableKey), "SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY is required");
 
   const supabase = createClient(supabaseUrl, publishableKey);
-  const signIn = await supabase.auth.signInAnonymously();
-  assert(!signIn.error, `Anonymous sign-in failed: ${signIn.error?.message ?? "unknown"}`);
-  const token = signIn.data.session?.access_token;
+  const token = await issueSmokeAccessToken(supabase);
   assert(typeof token === "string", "No access token returned from auth");
 
   const health = await http("/health", token);
