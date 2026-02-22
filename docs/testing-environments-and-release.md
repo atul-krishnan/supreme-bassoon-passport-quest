@@ -160,3 +160,15 @@ npm run ops:uat:evidence -- --release-sha=<commit_sha> --build-id=<build_identif
 Evidence folder guide:
 
 - `/Users/atulkrishnan/Documents/Passport Quest/docs/uat-evidence/README.md`
+
+## Smoke user setup
+
+To provision/update stable password-based smoke users and sync credentials to GitHub secrets:
+
+```bash
+npm run ops:setup:smoke-users
+```
+
+Script:
+
+- `/Users/atulkrishnan/Documents/Passport Quest/scripts/ops/setup-smoke-users.mjs`

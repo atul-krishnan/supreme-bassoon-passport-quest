@@ -98,6 +98,58 @@ gh secret set PROD_SMOKE_TEST_PASSWORD --body "set-a-strong-password"
 gh secret set PROD_SUPABASE_SERVICE_ROLE_KEY --body "service_role_xxx"
 ```
 
+## Bootstrap smoke-test users (recommended)
+
+Use this when you want stable password-based smoke auth for both environments without manual copy/paste.
+
+1. Export required runtime env values in your shell:
+
+```bash
+export STAGING_SUPABASE_URL="https://<staging-ref>.supabase.co"
+export STAGING_SUPABASE_SERVICE_ROLE_KEY="<staging-service-role>"
+export STAGING_SUPABASE_PUBLISHABLE_KEY="<staging-publishable-key>"
+export PROD_SUPABASE_URL="https://<prod-ref>.supabase.co"
+export PROD_SUPABASE_SERVICE_ROLE_KEY="<prod-service-role>"
+export PROD_SUPABASE_PUBLISHABLE_KEY="<prod-publishable-key>"
+```
+
+2. Run automated setup:
+
+```bash
+npm run ops:setup:smoke-users
+```
+
+Default behavior:
+- Creates or updates `smoke-staging@passportquest.app` and `smoke-prod@passportquest.app`.
+- Generates strong passwords if not provided.
+- Verifies password login for each user.
+- Updates GitHub secrets:
+  - `STAGING_SMOKE_TEST_EMAIL`
+  - `STAGING_SMOKE_TEST_PASSWORD`
+  - `PROD_SMOKE_TEST_EMAIL`
+  - `PROD_SMOKE_TEST_PASSWORD`
+
+Target one environment only:
+
+```bash
+SMOKE_TARGET=staging npm run ops:setup:smoke-users
+SMOKE_TARGET=production npm run ops:setup:smoke-users
+```
+
+Disable GitHub secret sync (manual mode):
+
+```bash
+SYNC_GITHUB_SECRETS=false \
+STAGING_SMOKE_TEST_PASSWORD="<strong-password>" \
+npm run ops:setup:smoke-users
+```
+
+If you need provisioning without login verification (for example, when email/password auth is intentionally disabled), set:
+
+```bash
+SMOKE_VERIFY_PASSWORD_LOGIN=false npm run ops:setup:smoke-users
+```
+
 ## Repository variables
 
 Required for `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/staging-gate.yml`:

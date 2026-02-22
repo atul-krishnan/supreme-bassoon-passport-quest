@@ -30,6 +30,7 @@
     "staging:gate:check": "node scripts/gates/staging-gate-check.mjs",
     "ops:check:github-config": "bash scripts/ops/check-github-config.sh",
     "ops:check:zero-cost": "bash scripts/ops/check-zero-cost-pilot.sh",
+    "ops:setup:smoke-users": "node scripts/ops/setup-smoke-users.mjs",
     "ops:uat:evidence": "node scripts/ops/create-uat-evidence.mjs",
     "security:audit": "npm audit --audit-level=high",
     "security:audit:json": "npm audit --json",
