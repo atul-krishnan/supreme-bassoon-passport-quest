@@ -14,6 +14,23 @@ function assert(condition, message) {
   }
 }
 
+function decodeJwtClaims(token) {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  try {
+    const payload = parts[1]
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(parts[1].length / 4) * 4, "=");
+    return JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
 async function http(path, token) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
@@ -63,7 +80,7 @@ async function issueSmokeAccessToken(supabase) {
   const anonymousToken = anonymousSignIn.data.session?.access_token;
 
   if (!anonymousSignIn.error && anonymousToken) {
-    return anonymousToken;
+    return { token: anonymousToken, strategy: "anonymous" };
   }
 
   const fallbackEmail = process.env.SMOKE_TEST_EMAIL;
@@ -75,7 +92,10 @@ async function issueSmokeAccessToken(supabase) {
       password: fallbackPassword,
     });
     if (!passwordSignIn.error && passwordSignIn.data.session?.access_token) {
-      return passwordSignIn.data.session.access_token;
+      return {
+        token: passwordSignIn.data.session.access_token,
+        strategy: "smoke_test_credentials",
+      };
     }
   }
 
@@ -105,7 +125,10 @@ async function issueSmokeAccessToken(supabase) {
         password: serviceRoleCreds.password,
       });
       if (!serviceRoleSignIn.error && serviceRoleSignIn.data.session?.access_token) {
-        return serviceRoleSignIn.data.session.access_token;
+        return {
+          token: serviceRoleSignIn.data.session.access_token,
+          strategy: "service_role_ephemeral_user",
+        };
       }
 
       adminProvisionError =
@@ -132,7 +155,10 @@ async function issueSmokeAccessToken(supabase) {
   });
 
   if (!passwordSignIn.error && passwordSignIn.data.session?.access_token) {
-    return passwordSignIn.data.session.access_token;
+    return {
+      token: passwordSignIn.data.session.access_token,
+      strategy: "signup_signin_fallback",
+    };
   }
 
   throw new Error(
@@ -150,8 +176,28 @@ async function main() {
   assert(Boolean(publishableKey), "SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY is required");
 
   const supabase = createClient(supabaseUrl, publishableKey);
-  const token = await issueSmokeAccessToken(supabase);
+  const authResult = await issueSmokeAccessToken(supabase);
+  const token = authResult.token;
   assert(typeof token === "string", "No access token returned from auth");
+
+  const tokenClaims = decodeJwtClaims(token);
+  console.log(
+    JSON.stringify(
+      {
+        smokeAuthStrategy: authResult.strategy,
+        tokenMeta: {
+          segments: token.split(".").length,
+          hasClaims: Boolean(tokenClaims),
+          iss: typeof tokenClaims?.iss === "string" ? tokenClaims.iss : null,
+          aud: tokenClaims?.aud ?? null,
+          role: typeof tokenClaims?.role === "string" ? tokenClaims.role : null,
+          hasSub: typeof tokenClaims?.sub === "string",
+        },
+      },
+      null,
+      2,
+    ),
+  );
 
   const health = await http("/health", token);
   assert(health.response.status === 200, `Health check failed: ${health.response.status} ${health.text}`);
