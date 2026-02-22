@@ -89,6 +89,7 @@ jobs:
       - name: Build production iOS artifact
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
           APP_ENV: production
           RELEASE_SHA: ${{ github.event.inputs.release_sha || github.sha }}
         run: |
@@ -98,5 +99,6 @@ jobs:
         if: vars.AUTO_SUBMIT_TESTFLIGHT == 'true'
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
         run: |
           npx --yes eas-cli@14.5.0 submit --platform ios --profile production --latest --non-interactive

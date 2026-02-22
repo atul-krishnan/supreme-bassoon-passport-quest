@@ -89,6 +89,7 @@ jobs:
       - name: Build iOS staging artifact
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
           APP_ENV: staging
           RELEASE_SHA: ${{ github.sha }}
         run: |
