@@ -86,14 +86,20 @@ jobs:
           fi
           npm run contracts:smoke
 
-      - name: Build iOS staging artifact
+      - name: Build iOS staging artifact (optional)
+        if: ${{ secrets.EAS_PROJECT_ID != '' }}
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
           APP_ENV: staging
           RELEASE_SHA: ${{ github.sha }}
         run: |
           npx --yes eas-cli@14.5.0 build --platform ios --profile staging --non-interactive --no-wait
+
+      - name: Skip iOS staging artifact (EAS project not configured)
+        if: ${{ secrets.EAS_PROJECT_ID == '' }}
+        run: echo "Skipping staging iOS build because EAS_PROJECT_ID secret is not set."
 
       - name: Run Maestro iOS smoke suite (optional)
         if: env.MAESTRO_APP_FILE != ''

@@ -38,9 +38,10 @@ jobs:
           PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           PROD_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
         run: |
           missing=0
-          for key in SUPABASE_ACCESS_TOKEN PROD_PROJECT_REF PROD_DB_PASSWORD PROD_SUPABASE_URL PROD_SUPABASE_PUBLISHABLE_KEY EAS_TOKEN; do
+          for key in SUPABASE_ACCESS_TOKEN PROD_PROJECT_REF PROD_DB_PASSWORD PROD_SUPABASE_URL PROD_SUPABASE_PUBLISHABLE_KEY EAS_TOKEN EAS_PROJECT_ID; do
             if [ -z "${!key}" ]; then
               echo "Missing required secret: $key"
               missing=1
@@ -90,6 +91,7 @@ jobs:
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
           APP_ENV: production
           RELEASE_SHA: ${{ github.event.inputs.release_sha || github.sha }}
         run: |
