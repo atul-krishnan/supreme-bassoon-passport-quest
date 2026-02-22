@@ -36,7 +36,8 @@ Required:
 
 Optional:
 
-- `EAS_PROJECT_ID` (required to run EAS build steps in CI; if missing, staging workflow skips iOS build)
+- `EAS_STAGING_PROJECT_ID` (required to run staging EAS build step in CI; if missing, staging workflow skips iOS build)
+- `EAS_PRODUCTION_PROJECT_ID` (required for production promotion workflow iOS build step)
 - `STAGING_API_BASE_URL` (defaults to `${STAGING_SUPABASE_URL}/functions/v1/v1`)
 - `PROD_API_BASE_URL` (defaults to `${PROD_SUPABASE_URL}/functions/v1/v1`)
 - `MAESTRO_APP_FILE` (if set, staging workflow runs Maestro smoke test with this app artifact)
@@ -73,7 +74,8 @@ Optional:
 gh secret set STAGING_API_BASE_URL --body "https://your-staging-ref.supabase.co/functions/v1/v1"
 gh secret set PROD_API_BASE_URL --body "https://your-prod-ref.supabase.co/functions/v1/v1"
 gh secret set MAESTRO_APP_FILE --body "/path/to/staging-app.apk-or.ipa"
-gh secret set EAS_PROJECT_ID --body "your-eas-project-id"
+gh secret set EAS_STAGING_PROJECT_ID --body "your-eas-staging-project-id"
+gh secret set EAS_PRODUCTION_PROJECT_ID --body "your-eas-production-project-id"
 gh secret set STAGING_SMOKE_TEST_EMAIL --body "smoke-staging@example.com"
 gh secret set STAGING_SMOKE_TEST_PASSWORD --body "set-a-strong-password"
 gh secret set PROD_SMOKE_TEST_EMAIL --body "smoke-prod@example.com"

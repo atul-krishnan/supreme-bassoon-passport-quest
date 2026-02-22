@@ -9,7 +9,7 @@ jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     env:
-      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
+      EAS_PROJECT_ID: ${{ secrets.EAS_STAGING_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -100,7 +100,7 @@ jobs:
 
       - name: Skip iOS staging artifact (EAS project not configured)
         if: ${{ env.EAS_PROJECT_ID == '' }}
-        run: echo "Skipping staging iOS build because EAS_PROJECT_ID secret is not set."
+        run: echo "Skipping staging iOS build because EAS_STAGING_PROJECT_ID secret is not set."
 
       - name: Run Maestro iOS smoke suite (optional)
         if: env.MAESTRO_APP_FILE != ''
