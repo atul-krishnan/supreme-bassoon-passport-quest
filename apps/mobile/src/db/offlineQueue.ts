@@ -114,3 +114,8 @@ export async function getOfflineQueueSummary(): Promise<OfflineQueueSummary> {
     oldestPendingAt: row?.oldest_pending_at ?? undefined,
   };
 }
+
+export async function clearOfflineQueue() {
+  const db = await getDb();
+  await db.runAsync(`DELETE FROM offline_events`);
+}

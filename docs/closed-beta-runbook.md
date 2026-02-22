@@ -24,6 +24,11 @@
 - request accepted
 - feed visibility
 
+Automation support:
+
+- CI `PR Verify` workflow enforces typecheck + unit tests + DB tests + API smoke checks.
+- `Staging Gate` workflow enforces release hard-stop metrics before promotion.
+
 ## Incident playbook
 
 1. If completion p95 breaches target:

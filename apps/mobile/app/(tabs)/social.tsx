@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -71,6 +71,7 @@ export default function SocialScreen() {
   const [friendUsername, setFriendUsername] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showTools, setShowTools] = useState(false);
+  const trackedFeedVisibleRef = useRef(false);
 
   const feedQuery = useQuery({
     queryKey: ["social-feed"],
@@ -155,6 +156,24 @@ export default function SocialScreen() {
       })),
     [feedQuery.data?.events],
   );
+
+  useEffect(() => {
+    if (!feedQuery.isSuccess) {
+      return;
+    }
+
+    if (feedEvents.length === 0) {
+      trackedFeedVisibleRef.current = false;
+      return;
+    }
+
+    if (!trackedFeedVisibleRef.current) {
+      trackUiEvent("social_feed_visible", {
+        eventCount: feedEvents.length,
+      });
+      trackedFeedVisibleRef.current = true;
+    }
+  }, [feedEvents.length, feedQuery.isSuccess]);
 
   return (
     <ScreenContainer padded={false}>

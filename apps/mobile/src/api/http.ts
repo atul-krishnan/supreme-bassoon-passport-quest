@@ -11,6 +11,10 @@ type RequestOptions = {
 };
 
 export async function apiRequest<T>(options: RequestOptions): Promise<T> {
+  const requestId = `mob-${Date.now()}-${Math.random()
+    .toString(16)
+    .slice(2, 10)}`;
+
   const query = options.query
     ? `?${new URLSearchParams(
         Object.entries(options.query)
@@ -24,6 +28,7 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
       method: options.method,
       headers: {
         "Content-Type": "application/json",
+        "x-request-id": requestId,
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       body: options.body ? JSON.stringify(options.body) : undefined

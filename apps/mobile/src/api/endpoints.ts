@@ -3,6 +3,7 @@ import type {
   CityId,
   CompleteQuestRequest,
   CompleteQuestResponse,
+  HealthResponse,
   IncomingFriendRequestsResponse,
   NearbyQuestResponse,
   ProfileCompareResponse,
@@ -119,5 +120,12 @@ export function registerPushToken(payload: RegisterPushTokenRequest) {
     method: "POST",
     path: "/notifications/register-token",
     body: payload,
+  });
+}
+
+export function getHealth() {
+  return apiRequest<HealthResponse>({
+    method: "GET",
+    path: "/health",
   });
 }

@@ -1,0 +1,93 @@
+name: Main To Staging
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Preflight secrets
+        id: preflight
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+          STAGING_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: |
+          missing=0
+          for key in SUPABASE_ACCESS_TOKEN STAGING_PROJECT_REF STAGING_DB_PASSWORD STAGING_SUPABASE_URL STAGING_SUPABASE_PUBLISHABLE_KEY EAS_TOKEN; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install Supabase CLI
+        if: steps.preflight.outputs.ready == 'true'
+        run: npm run supabase:cli -- --version
+
+      - name: Push migrations to staging
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+          STAGING_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+        run: |
+          npm run supabase:cli -- db push --project-ref "$STAGING_PROJECT_REF" --password "$STAGING_DB_PASSWORD" --workdir .
+
+      - name: Deploy Edge function v1 to staging
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+        run: |
+          npm run supabase:cli -- functions deploy v1 --project-ref "$STAGING_PROJECT_REF" --workdir .
+
+      - name: Staging API smoke checks
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          API_BASE_URL: ${{ secrets.STAGING_API_BASE_URL }}
+          CITY_ID: blr
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"
+          fi
+          npm run contracts:smoke
+
+      - name: Build iOS staging artifact
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          APP_ENV: staging
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          npx --yes eas-cli@14.5.0 build --platform ios --profile staging --non-interactive --no-wait
+
+      - name: Run Maestro iOS smoke suite (optional)
+        if: steps.preflight.outputs.ready == 'true' && secrets.MAESTRO_APP_FILE != ''
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          export PATH="$PATH:$HOME/.maestro/bin"
+          maestro test .maestro/ios-smoke.yaml --app-file "${{ secrets.MAESTRO_APP_FILE }}"

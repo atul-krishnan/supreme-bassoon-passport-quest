@@ -1,0 +1,30 @@
+name: Staging Gate
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  staging-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Evaluate staging gate
+        env:
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          COMPLETION_P95_MS: ${{ vars.STAGING_COMPLETION_P95_MS }}
+          NEARBY_P95_MS: ${{ vars.STAGING_NEARBY_P95_MS }}
+          OFFLINE_SYNC_SLA_PCT: ${{ vars.STAGING_OFFLINE_SYNC_SLA_PCT }}
+          CRASH_FREE_SESSIONS_PCT: ${{ vars.STAGING_CRASH_FREE_SESSIONS_PCT }}
+        run: npm run staging:gate:check

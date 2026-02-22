@@ -13,6 +13,10 @@ curl -H "Authorization: Bearer <jwt>" \
 curl -H "Authorization: Bearer <jwt>" \
   "http://127.0.0.1:54321/functions/v1/v1/config/bootstrap?cityId=blr"
 
+# health
+curl -H "Authorization: Bearer <jwt>" \
+  "http://127.0.0.1:54321/functions/v1/v1/health"
+
 # complete quest
 curl -X POST -H "Authorization: Bearer <jwt>" -H "Content-Type: application/json" \
   "http://127.0.0.1:54321/functions/v1/v1/quests/complete" \
@@ -37,3 +41,10 @@ curl -X PATCH -H "Authorization: Bearer <jwt>" -H "Content-Type: application/jso
   "http://127.0.0.1:54321/functions/v1/v1/users/me/profile" \
   -d '{"username":"atul_explorer","avatarUrl":"https://images.example/avatar.png"}'
 ```
+
+## Response metadata headers
+
+All routes now include:
+
+- `x-request-id`: per-request trace id for debugging and incident correlation.
+- `x-release-sha`: release build identifier for parity checks and rollbacks.

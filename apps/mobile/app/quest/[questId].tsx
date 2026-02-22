@@ -14,6 +14,7 @@ import type { QuestCategory } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { completeQuest } from "../../src/api/endpoints";
 import { enqueueQuestCompletion } from "../../src/db/offlineQueue";
+import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { theme } from "../../src/theme";
 import {
   GlassCard,
@@ -26,11 +27,13 @@ import { HERO_BY_CATEGORY } from "../../src/ui/questAssets";
 
 type DetailParams = {
   questId?: string;
+  cityId?: string;
   title?: string;
   description?: string;
   category?: QuestCategory;
   xpReward?: string;
   badgeKey?: string;
+  source?: string;
 };
 
 function normalizeCategory(value: string | undefined): QuestCategory {
@@ -43,6 +46,7 @@ function normalizeCategory(value: string | undefined): QuestCategory {
 export default function QuestDetailScreen() {
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<DetailParams>();
+  const locationOverride = useLocationOverrideStore((state) => state.override);
 
   const questId = typeof params.questId === "string" ? params.questId : "";
   const title = typeof params.title === "string" ? params.title : "Quest";
@@ -62,6 +66,7 @@ export default function QuestDetailScreen() {
     typeof params.badgeKey === "string" && params.badgeKey.length > 0
       ? params.badgeKey
       : null;
+  const source = typeof params.source === "string" ? params.source : "unknown";
 
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -69,16 +74,38 @@ export default function QuestDetailScreen() {
         throw new Error("Missing quest id.");
       }
 
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        throw new Error(
-          "Location permission is required to claim this reward.",
-        );
-      }
+      let position:
+        | {
+            coords: {
+              latitude: number;
+              longitude: number;
+              accuracy: number | null;
+              speed: number | null;
+            };
+          }
+        | Location.LocationObject;
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
+      if (locationOverride) {
+        position = {
+          coords: {
+            latitude: locationOverride.lat,
+            longitude: locationOverride.lng,
+            accuracy: locationOverride.accuracyM,
+            speed: null,
+          },
+        };
+      } else {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") {
+          throw new Error(
+            "Location permission is required to claim this reward.",
+          );
+        }
+
+        position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+      }
 
       const payload = {
         questId,
@@ -101,6 +128,16 @@ export default function QuestDetailScreen() {
           latencyMs: Date.now() - startedAt,
         });
         trackUiEvent("quest_claim_reward", { questId, status: result.status });
+        if (
+          source === "recommended" &&
+          result.status === "accepted" &&
+          result.reason !== "queued_offline"
+        ) {
+          trackUiEvent("recommended_quest_completed", {
+            questId,
+            cityId: params.cityId,
+          });
+        }
         return result;
       } catch (error) {
         await enqueueQuestCompletion(payload);

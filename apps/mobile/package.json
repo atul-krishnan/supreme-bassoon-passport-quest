@@ -7,7 +7,10 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --runInBand --coverage"
   },
   "dependencies": {
     "@passport-quest/shared": "0.1.0",
@@ -29,7 +32,13 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.2.0",
     "@types/react": "~18.3.12",
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "jest-expo": "^52.0.6",
+    "react-test-renderer": "18.3.1",
     "typescript": "^5.7.3"
   }
 }

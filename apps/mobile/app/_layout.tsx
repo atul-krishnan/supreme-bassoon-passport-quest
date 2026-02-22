@@ -21,6 +21,8 @@ import { APP_CITY_ID } from "../src/config/city";
 import { useSessionStore } from "../src/state/session";
 import { useOfflineSync } from "../src/hooks/useOfflineSync";
 
+let hasTrackedFirstThreeCompletions = false;
+
 export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
   const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
@@ -94,6 +96,15 @@ export default function RootLayout() {
           trackUiEvent("app_bootstrap_success", {
             needsOnboarding: hasPlaceholderUsername,
           });
+          if (
+            summary.stats.questsCompleted >= 3 &&
+            !hasTrackedFirstThreeCompletions
+          ) {
+            trackUiEvent("first_3_quests_completed", {
+              questsCompleted: summary.stats.questsCompleted,
+            });
+            hasTrackedFirstThreeCompletions = true;
+          }
         }
       } catch {
         if (isMounted) {

@@ -191,3 +191,10 @@ export type RegisterPushTokenResponse = {
   platform: "ios" | "android";
   updatedAt: string;
 };
+
+export type HealthResponse = {
+  status: "ok";
+  environment: string;
+  releaseSha: string;
+  serverTime: string;
+};

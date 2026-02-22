@@ -17,7 +17,12 @@ import {
   updateMyProfile,
 } from "../../src/api/endpoints";
 import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
+import { env } from "../../src/config/env";
+import { clearOfflineQueue } from "../../src/db/offlineQueue";
+import { useOfflineSync } from "../../src/hooks/useOfflineSync";
+import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { useOfflineSyncState } from "../../src/state/offlineSync";
+import { useSessionStore } from "../../src/state/session";
 import { theme } from "../../src/theme";
 import {
   BadgeChip,
@@ -47,16 +52,27 @@ function formatSyncTime(iso: string | null): string {
 
 export default function ProfileScreen() {
   const queryClient = useQueryClient();
+  const { flushQueue } = useOfflineSync();
+  const userId = useSessionStore((state) => state.userId);
+  const resetSession = useSessionStore((state) => state.resetSession);
+  const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
+  const locationOverride = useLocationOverrideStore((state) => state.override);
+  const setLocationOverride = useLocationOverrideStore((state) => state.setOverride);
+  const clearLocationOverride = useLocationOverrideStore((state) => state.clearOverride);
 
   const pendingCount = useOfflineSyncState((state) => state.pendingCount);
   const isSyncing = useOfflineSyncState((state) => state.isSyncing);
   const lastSyncAt = useOfflineSyncState((state) => state.lastSyncAt);
   const lastError = useOfflineSyncState((state) => state.lastError);
+  const setPendingCount = useOfflineSyncState((state) => state.setPendingCount);
+  const setLastError = useOfflineSyncState((state) => state.setLastError);
 
   const [isEditing, setIsEditing] = useState(false);
   const [usernameDraft, setUsernameDraft] = useState("");
   const [avatarDraft, setAvatarDraft] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [qaStatus, setQaStatus] = useState<string | null>(null);
+  const [qaBusy, setQaBusy] = useState<null | "sync" | "clear" | "session">(null);
 
   const summaryQuery = useQuery({
     queryKey: ["user-summary"],
@@ -113,6 +129,21 @@ export default function ProfileScreen() {
       ? Object.entries(configQuery.data.experiments)
       : [];
   }, [configQuery.data?.experiments]);
+
+  const runQaAction = async (
+    action: "sync" | "clear" | "session",
+    handler: () => Promise<void>,
+  ) => {
+    setQaBusy(action);
+    setQaStatus(null);
+    try {
+      await handler();
+    } catch (error) {
+      setQaStatus(error instanceof Error ? error.message : "Action failed");
+    } finally {
+      setQaBusy(null);
+    }
+  };
 
   return (
     <ScreenContainer padded={false}>
@@ -273,6 +304,104 @@ export default function ProfileScreen() {
             </Text>
           ) : null}
         </GlassCard>
+
+        {env.appEnv !== "production" ? (
+          <>
+            <Text style={styles.sectionTitle}>QA Mode</Text>
+            <GlassCard style={styles.qaCard}>
+              <Text style={styles.qaTitle}>Runtime</Text>
+              <Text style={styles.qaMeta}>Env: {env.appEnv}</Text>
+              <Text style={styles.qaMeta}>Release: {env.releaseSha ?? "local-dev"}</Text>
+              <Text style={styles.qaMeta}>User: {userId ?? "anonymous"}</Text>
+              <Text style={styles.qaMeta}>City: {APP_CITY_ID}</Text>
+              <Text style={styles.qaMeta}>
+                Experiment:{" "}
+                {experimentVariants.length > 0
+                  ? `${experimentVariants[0][0]}=${experimentVariants[0][1]}`
+                  : "n/a"}
+              </Text>
+              <Text style={styles.qaMeta}>Pending queue: {pendingCount}</Text>
+              <Text style={styles.qaMeta}>
+                Test location: {locationOverride ? "enabled" : "disabled"}
+              </Text>
+
+              <View style={styles.qaActionsRow}>
+                <NeonButton
+                  label="Force Sync"
+                  variant="secondary"
+                  loading={qaBusy === "sync"}
+                  onPress={() =>
+                    void runQaAction("sync", async () => {
+                      await flushQueue();
+                      setQaStatus("Offline queue flush complete");
+                    })
+                  }
+                />
+                <NeonButton
+                  label="Clear Queue"
+                  variant="secondary"
+                  loading={qaBusy === "clear"}
+                  onPress={() =>
+                    void runQaAction("clear", async () => {
+                      await clearOfflineQueue();
+                      setPendingCount(0);
+                      setLastError(null);
+                      setQaStatus("Offline queue cleared");
+                    })
+                  }
+                />
+              </View>
+
+              <View style={styles.qaActionsRow}>
+                <NeonButton
+                  label={
+                    locationOverride
+                      ? "Disable Test Location"
+                      : "Enable Test Location"
+                  }
+                  variant="secondary"
+                  onPress={() => {
+                    if (locationOverride) {
+                      clearLocationOverride();
+                      setQaStatus("Test location disabled");
+                      return;
+                    }
+                    setLocationOverride({
+                      lat: APP_CITY_ANCHOR.lat,
+                      lng: APP_CITY_ANCHOR.lng,
+                      accuracyM: 8,
+                      source: "app_test_location",
+                    });
+                    trackUiEvent("map_use_test_location", {
+                      cityId: APP_CITY_ID,
+                      source: "qa_mode",
+                    });
+                    setQaStatus("Test location enabled");
+                  }}
+                />
+                <NeonButton
+                  label="Reset Session"
+                  variant="secondary"
+                  loading={qaBusy === "session"}
+                  onPress={() =>
+                    void runQaAction("session", async () => {
+                      await resetSession();
+                      await bootstrapSession();
+                      await Promise.all([
+                        queryClient.invalidateQueries({ queryKey: ["user-summary"] }),
+                        queryClient.invalidateQueries({ queryKey: ["user-badges"] }),
+                        queryClient.invalidateQueries({ queryKey: ["social-feed"] }),
+                      ]);
+                      setQaStatus("Session reset complete");
+                    })
+                  }
+                />
+              </View>
+
+              {qaStatus ? <Text style={styles.qaStatus}>{qaStatus}</Text> : null}
+            </GlassCard>
+          </>
+        ) : null}
       </ScrollView>
     </ScreenContainer>
   );
@@ -391,5 +520,24 @@ const styles = StyleSheet.create({
   runtimeHint: {
     color: theme.colors.textMuted,
     fontSize: theme.typography.caption.fontSize,
+  },
+  qaCard: {
+    gap: theme.spacing.xs,
+  },
+  qaTitle: {
+    color: theme.colors.textPrimary,
+    fontWeight: "700",
+  },
+  qaMeta: {
+    color: theme.colors.textSecondary,
+  },
+  qaActionsRow: {
+    marginTop: theme.spacing.xs,
+    gap: theme.spacing.xs,
+  },
+  qaStatus: {
+    marginTop: theme.spacing.xs,
+    color: theme.colors.accentCyan,
+    fontWeight: "600",
   },
 });

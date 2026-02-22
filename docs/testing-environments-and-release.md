@@ -1,0 +1,121 @@
+# Testing, Environments, and Release Operations
+
+Last updated: February 22, 2026
+
+## Environment topology
+
+| Environment | Backend | Mobile build | Primary purpose |
+| --- | --- | --- | --- |
+| Local | Supabase local stack | Expo dev client (`APP_ENV=local`) | Development, debugging, local contract checks |
+| Staging | Supabase staging project/branch | EAS profile `staging` (`com.passportquest.mobile.staging`) | Release candidate validation |
+| Production | Supabase production project | EAS profile `production` (`com.passportquest.mobile`) | TestFlight beta and production usage |
+
+## Required mobile env contract
+
+- `APP_ENV` (`local|staging|production`)
+- `API_BASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `POSTHOG_HOST`
+- `POSTHOG_API_KEY`
+- `SENTRY_DSN`
+- `RELEASE_SHA`
+
+Runtime parsing is defined in `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/src/config/env.ts` and supplied by `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app.config.ts`.
+
+## Guardrails
+
+- Staging builds fail if they point to the production Supabase project URL.
+- Every `v1` API response includes:
+  - `x-request-id`
+  - `x-release-sha`
+- `GET /v1/health` is available for authenticated smoke checks.
+
+## Automated checks
+
+### Pull request (`PR Verify`)
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/ci.yml`
+
+Checks:
+
+1. `npm ci`
+2. `npm run mobile:typecheck`
+3. `npm run mobile:test`
+4. `npm run supabase:test`
+5. `npm run contracts:smoke`
+
+### Staging deployment
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/main-to-staging.yml`
+
+Sequence:
+
+1. Push migrations to staging DB.
+2. Deploy `v1` Edge Function.
+3. Run API smoke checks (`/health`, bootstrap, summary).
+4. Build iOS staging artifact (`eas build --profile staging`).
+5. Optionally run Maestro smoke suite.
+
+### Staging gates
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/staging-gate.yml`
+
+Gate script:
+
+- `/Users/atulkrishnan/Documents/Passport Quest/scripts/gates/staging-gate-check.mjs`
+
+Thresholds:
+
+- completion p95 `< 2000ms`
+- nearby p95 `< 800ms`
+- offline sync SLA `>= 99%`
+- crash-free sessions `>= 99.5%`
+- duplicate accepted completions `= 0`
+
+### Production promotion
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/promote-to-prod.yml`
+
+Sequence:
+
+1. Apply production migrations.
+2. Deploy production `v1` function.
+3. Run production API smoke checks.
+4. Build production iOS artifact.
+5. Optional TestFlight submit.
+
+## Mobile QA mode
+
+Visible only in non-production builds from Profile tab.
+
+Capabilities:
+
+1. Force sync offline queue.
+2. Clear local offline queue.
+3. Enable/disable Bangalore test location override.
+4. Reset and re-bootstrap session.
+5. Display runtime metadata (env, release, user, city, experiment, queue).
+
+## Maestro smoke suites
+
+Flows:
+
+- `/Users/atulkrishnan/Documents/Passport Quest/.maestro/ios-smoke.yaml`
+- `/Users/atulkrishnan/Documents/Passport Quest/.maestro/android-smoke.yaml`
+
+Run:
+
+```bash
+npm run maestro:ios:smoke
+npm run maestro:android:smoke
+```
+
+## UAT evidence
+
+For each staging candidate attach:
+
+1. Build identifier and release SHA.
+2. QA checklist pass/fail notes.
+3. Screenshots for onboarding, quest completion, offline replay, social flow.
+4. KPI snapshot for latency/SLA/duplicates.

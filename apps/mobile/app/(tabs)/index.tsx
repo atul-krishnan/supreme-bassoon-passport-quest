@@ -8,6 +8,7 @@ import type { Quest } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { getNearbyQuests, getUserSummary } from "../../src/api/endpoints";
 import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
+import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { theme } from "../../src/theme";
 import {
   EmptyState,
@@ -85,6 +86,8 @@ function openQuestDetail(quest: Quest) {
 export default function DiscoveryMapScreen() {
   const cityId = APP_CITY_ID;
   const cityAnchor = APP_CITY_ANCHOR;
+  const locationOverride = useLocationOverrideStore((state) => state.override);
+  const setLocationOverride = useLocationOverrideStore((state) => state.setOverride);
   const [coords, setCoords] = useState<{
     lat: number;
     lng: number;
@@ -96,9 +99,9 @@ export default function DiscoveryMapScreen() {
     const permission = await Location.requestForegroundPermissionsAsync();
     if (permission.status !== "granted") {
       setCoords({
-        lat: cityAnchor.lat,
-        lng: cityAnchor.lng,
-        accuracyM: 8,
+        lat: locationOverride?.lat ?? cityAnchor.lat,
+        lng: locationOverride?.lng ?? cityAnchor.lng,
+        accuracyM: locationOverride?.accuracyM ?? 8,
       });
       return;
     }
@@ -115,12 +118,18 @@ export default function DiscoveryMapScreen() {
       });
     } catch {
       setCoords({
-        lat: cityAnchor.lat,
-        lng: cityAnchor.lng,
-        accuracyM: 8,
+        lat: locationOverride?.lat ?? cityAnchor.lat,
+        lng: locationOverride?.lng ?? cityAnchor.lng,
+        accuracyM: locationOverride?.accuracyM ?? 8,
       });
     }
-  }, [cityAnchor.lat, cityAnchor.lng]);
+  }, [
+    cityAnchor.lat,
+    cityAnchor.lng,
+    locationOverride?.accuracyM,
+    locationOverride?.lat,
+    locationOverride?.lng,
+  ]);
 
   useEffect(() => {
     void requestDeviceLocation();
@@ -163,6 +172,12 @@ export default function DiscoveryMapScreen() {
   const featuredQuest = nearbyQuery.data?.quests?.[0];
 
   const handleUseTestLocation = () => {
+    setLocationOverride({
+      lat: cityAnchor.lat,
+      lng: cityAnchor.lng,
+      accuracyM: 8,
+      source: "app_test_location",
+    });
     setCoords({
       lat: cityAnchor.lat,
       lng: cityAnchor.lng,

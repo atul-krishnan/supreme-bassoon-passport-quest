@@ -1,0 +1,87 @@
+name: Promote To Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Release SHA for build metadata"
+        required: false
+        type: string
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Preflight secrets
+        id: preflight
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+          PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+          PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          PROD_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: |
+          missing=0
+          for key in SUPABASE_ACCESS_TOKEN PROD_PROJECT_REF PROD_DB_PASSWORD PROD_SUPABASE_URL PROD_SUPABASE_PUBLISHABLE_KEY EAS_TOKEN; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Apply migrations to production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+          PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+        run: |
+          npm run supabase:cli -- db push --project-ref "$PROD_PROJECT_REF" --password "$PROD_DB_PASSWORD" --workdir .
+
+      - name: Deploy Edge function v1 to production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+        run: |
+          npm run supabase:cli -- functions deploy v1 --project-ref "$PROD_PROJECT_REF" --workdir .
+
+      - name: Production API smoke checks
+        env:
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
+          API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          CITY_ID: blr
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"
+          fi
+          npm run contracts:smoke
+
+      - name: Build production iOS artifact
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          APP_ENV: production
+          RELEASE_SHA: ${{ github.event.inputs.release_sha || github.sha }}
+        run: |
+          npx --yes eas-cli@14.5.0 build --platform ios --profile production --non-interactive
+
+      - name: Submit to TestFlight (optional)
+        if: vars.AUTO_SUBMIT_TESTFLIGHT == 'true'
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: |
+          npx --yes eas-cli@14.5.0 submit --platform ios --profile production --latest --non-interactive

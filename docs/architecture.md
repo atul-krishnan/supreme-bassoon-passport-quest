@@ -89,6 +89,7 @@ flowchart LR
 - `GET /v1/users/me/badges` (additive read endpoint)
 - `PATCH /v1/users/me/profile` (additive profile mutation endpoint)
 - `POST /v1/notifications/register-token` (additive push registration endpoint)
+- `GET /v1/health` (additive release/parity smoke endpoint)
 
 ### 5.2 Core RPC / server logic
 

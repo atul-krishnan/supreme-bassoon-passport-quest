@@ -39,6 +39,15 @@
 4. Verify app has no NYC city selection surface.
 5. Verify profile runtime info shows Bangalore as active pilot city.
 
+## QA mode (non-production builds)
+
+1. Open Profile and confirm QA Mode card is visible.
+2. Confirm runtime metadata shows env, release SHA, user id, and city.
+3. Trigger `Force Sync` and confirm queue status updates.
+4. Trigger `Clear Queue` and confirm pending count becomes 0.
+5. Toggle test location on/off and confirm status changes.
+6. Trigger `Reset Session` and confirm app re-bootstrap succeeds.
+
 ## Notifications and experiments
 
 1. Confirm push token registration endpoint is called (where permissions allow).

@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import * as Location from "expo-location";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Quest } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { getNearbyQuests, getUserSummary } from "../../src/api/endpoints";
 import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
+import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { useOfflineSyncState } from "../../src/state/offlineSync";
 import { theme } from "../../src/theme";
 import {
@@ -19,12 +20,28 @@ import {
   TopBar,
 } from "../../src/ui";
 
-function openQuestDetail(quest: Quest) {
+function openQuestDetail(
+  quest: Quest,
+  source: "nearby" | "recommended" = "nearby",
+  action: "opened" | "started" = "opened",
+) {
   trackUiEvent("map_open_quest", {
     questId: quest.id,
     cityId: quest.cityId,
-    source: "quests_tab",
+    source: `${source}_quests_tab`,
   });
+  if (source === "recommended") {
+    trackUiEvent(
+      action === "started"
+        ? "recommended_quest_started"
+        : "recommended_quest_opened",
+      {
+        questId: quest.id,
+        cityId: quest.cityId,
+        surface: "quests_tab",
+      },
+    );
+  }
   router.push({
     pathname: "/quest/[questId]",
     params: {
@@ -38,6 +55,7 @@ function openQuestDetail(quest: Quest) {
       geofenceLat: String(quest.geofence.lat),
       geofenceLng: String(quest.geofence.lng),
       geofenceRadiusM: String(quest.geofence.radiusM),
+      source,
     },
   });
 }
@@ -45,6 +63,8 @@ function openQuestDetail(quest: Quest) {
 export default function QuestsScreen() {
   const cityId = APP_CITY_ID;
   const cityAnchor = APP_CITY_ANCHOR;
+  const locationOverride = useLocationOverrideStore((state) => state.override);
+  const setLocationOverride = useLocationOverrideStore((state) => state.setOverride);
   const pendingCount = useOfflineSyncState((state) => state.pendingCount);
   const isSyncing = useOfflineSyncState((state) => state.isSyncing);
   const lastSyncAt = useOfflineSyncState((state) => state.lastSyncAt);
@@ -52,22 +72,33 @@ export default function QuestsScreen() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     null,
   );
+  const trackedRecommendedImpressionsRef = useRef<Set<string>>(new Set());
 
   const requestDeviceLocation = useCallback(async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
     if (permission.status !== "granted") {
-      setCoords({ lat: cityAnchor.lat, lng: cityAnchor.lng });
+      setCoords({
+        lat: locationOverride?.lat ?? cityAnchor.lat,
+        lng: locationOverride?.lng ?? cityAnchor.lng,
+      });
       return;
     }
 
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    setCoords({
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-    });
-  }, [cityAnchor.lat, cityAnchor.lng]);
+    try {
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setCoords({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    } catch {
+      setCoords({
+        lat: locationOverride?.lat ?? cityAnchor.lat,
+        lng: locationOverride?.lng ?? cityAnchor.lng,
+      });
+    }
+  }, [cityAnchor.lat, cityAnchor.lng, locationOverride?.lat, locationOverride?.lng]);
 
   useEffect(() => {
     void requestDeviceLocation();
@@ -100,6 +131,20 @@ export default function QuestsScreen() {
     [nearbyQuests],
   );
 
+  useEffect(() => {
+    for (const quest of suggestedQuests) {
+      if (trackedRecommendedImpressionsRef.current.has(quest.id)) {
+        continue;
+      }
+      trackedRecommendedImpressionsRef.current.add(quest.id);
+      trackUiEvent("recommended_quest_impression", {
+        questId: quest.id,
+        cityId: quest.cityId,
+        surface: "quests_tab",
+      });
+    }
+  }, [suggestedQuests]);
+
   return (
     <ScreenContainer padded={false}>
       <View style={styles.header}>
@@ -115,6 +160,12 @@ export default function QuestsScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={() => {
+              setLocationOverride({
+                lat: cityAnchor.lat,
+                lng: cityAnchor.lng,
+                accuracyM: 8,
+                source: "app_test_location",
+              });
               setCoords({ lat: cityAnchor.lat, lng: cityAnchor.lng });
               trackUiEvent("map_use_test_location", {
                 cityId,
@@ -210,8 +261,8 @@ export default function QuestsScreen() {
               }}
               compact
               ctaLabel="View Details"
-              onPress={() => openQuestDetail(quest)}
-              onStart={() => openQuestDetail(quest)}
+              onPress={() => openQuestDetail(quest, "recommended", "opened")}
+              onStart={() => openQuestDetail(quest, "recommended", "started")}
             />
           ))
         )}

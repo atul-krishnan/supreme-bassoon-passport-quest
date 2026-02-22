@@ -13,6 +13,7 @@ type SessionState = {
   isBootstrapped: boolean;
   refreshAccessToken: () => Promise<string | null>;
   bootstrapSession: () => Promise<void>;
+  resetSession: () => Promise<void>;
   setCity: (cityId: CityId) => void;
   setNeedsOnboarding: (needsOnboarding: boolean) => void;
 };
@@ -22,7 +23,7 @@ const REFRESH_TOKEN_KEY = "pq_refresh_token";
 const GUEST_EMAIL_KEY = "pq_guest_email";
 const GUEST_PASSWORD_KEY = "pq_guest_password";
 
-const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
+const supabase = createClient(env.supabaseUrl, env.supabasePublishableKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -39,6 +40,22 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   isBootstrapped: false,
   setCity: (activeCityId) => set({ activeCityId }),
   setNeedsOnboarding: (needsOnboarding) => set({ needsOnboarding }),
+  resetSession: async () => {
+    await Promise.all([
+      SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
+      SecureStore.deleteItemAsync(GUEST_EMAIL_KEY),
+      SecureStore.deleteItemAsync(GUEST_PASSWORD_KEY),
+    ]);
+
+    set({
+      accessToken: null,
+      refreshToken: null,
+      userId: null,
+      needsOnboarding: false,
+      isBootstrapped: false,
+    });
+  },
   refreshAccessToken: async () => {
     const currentRefreshToken =
       get().refreshToken ?? (await SecureStore.getItemAsync(REFRESH_TOKEN_KEY));

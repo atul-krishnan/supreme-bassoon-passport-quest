@@ -1,4 +1,4 @@
-name: CI
+name: PR Verify
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  mobile-typecheck:
+  pr-verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,6 +15,45 @@ jobs:
           node-version: "20"
           cache: "npm"
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+      - name: Prepare Docker socket for Supabase CLI
+        run: |
+          if [ -S /var/run/docker.sock ]; then
+            sudo ln -sf /var/run/docker.sock /tmp/docker.sock
+          fi
+      - name: Start local Supabase
+        run: npm run local:up
+      - name: Reset local database
+        run: npm run local:reset
       - name: Typecheck mobile workspace
         run: npm run mobile:typecheck
+      - name: Run mobile unit tests
+        run: npm run mobile:test
+      - name: Run Supabase DB tests
+        run: npm run supabase:test
+      - name: Start Edge Functions
+        run: |
+          nohup npm run local:functions >/tmp/supabase-functions.log 2>&1 &
+      - name: Wait for Edge Functions
+        run: |
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:54321/functions/v1/v1/health || true)"
+            if [ "$code" = "401" ] || [ "$code" = "200" ]; then
+              echo "Functions are ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Supabase functions did not become ready"
+          cat /tmp/supabase-functions.log || true
+          exit 1
+      - name: Run API smoke contracts
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          API_BASE_URL: http://127.0.0.1:54321/functions/v1/v1
+          CITY_ID: blr
+        run: npm run contracts:smoke
+      - name: Print function logs on failure
+        if: failure()
+        run: cat /tmp/supabase-functions.log || true

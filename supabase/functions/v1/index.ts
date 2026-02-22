@@ -14,6 +14,18 @@ const ALLOWED_FRIEND_REQUEST_STATUSES = new Set([
   "cancelled",
 ]);
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,32}$/;
+const RELEASE_SHA = (Deno.env.get("RELEASE_SHA") ?? "dev-local").trim() || "dev-local";
+const APP_ENV = (Deno.env.get("APP_ENV") ?? "local").trim() || "local";
+
+function withMetaHeaders(response: Response, requestId: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set("x-request-id", requestId);
+  headers.set("x-release-sha", RELEASE_SHA);
+  return new Response(response.body, {
+    status: response.status,
+    headers,
+  });
+}
 
 function makeServiceClient(req: Request): DbClient {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -120,6 +132,15 @@ async function readJsonBody(req: Request): Promise<Record<string, unknown>> {
   } catch {
     throw new Error("Invalid JSON body");
   }
+}
+
+async function handleHealth(): Promise<Response> {
+  return jsonResponse({
+    status: "ok",
+    environment: APP_ENV,
+    releaseSha: RELEASE_SHA,
+    serverTime: new Date().toISOString(),
+  });
 }
 
 async function handleNearby(
@@ -682,8 +703,17 @@ async function handleBootstrap(
 }
 
 serve(async (req: Request) => {
+  const requestId =
+    req.headers.get("x-request-id")?.trim() || crypto.randomUUID();
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", {
+      headers: {
+        ...corsHeaders,
+        "x-request-id": requestId,
+        "x-release-sha": RELEASE_SHA,
+      },
+    });
   }
 
   let user: { id: string } | null = null;
@@ -691,14 +721,14 @@ serve(async (req: Request) => {
   try {
     user = await requireAuthUser(req);
   } catch (error) {
-    return errorResponse(
-      500,
-      `Auth client init failed: ${(error as Error).message}`,
+    return withMetaHeaders(
+      errorResponse(500, `Auth client init failed: ${(error as Error).message}`),
+      requestId,
     );
   }
 
   if (!user) {
-    return errorResponse(401, "Unauthorized");
+    return withMetaHeaders(errorResponse(401, "Unauthorized"), requestId);
   }
 
   const url = new URL(req.url);
@@ -709,67 +739,80 @@ serve(async (req: Request) => {
   try {
     db = makeServiceClient(req);
   } catch (error) {
-    return errorResponse(500, (error as Error).message);
+    return withMetaHeaders(errorResponse(500, (error as Error).message), requestId);
   }
 
   try {
     if (req.method === "GET" && route === "/quests/nearby") {
-      return await handleNearby(req, db, url);
+      return withMetaHeaders(await handleNearby(req, db, url), requestId);
     }
 
     if (req.method === "POST" && route === "/quests/complete") {
-      return await handleComplete(req, db, user.id);
+      return withMetaHeaders(await handleComplete(req, db, user.id), requestId);
     }
 
     if (req.method === "GET" && route === "/social/feed") {
-      return await handleSocialFeed(db, user.id, url);
+      return withMetaHeaders(await handleSocialFeed(db, user.id, url), requestId);
     }
 
     if (req.method === "POST" && route === "/social/friends/request") {
-      return await handleFriendRequest(req, db, user.id);
+      return withMetaHeaders(await handleFriendRequest(req, db, user.id), requestId);
     }
 
     if (
       req.method === "POST" &&
       route === "/social/friends/request-by-username"
     ) {
-      return await handleFriendRequestByUsername(req, db, user.id);
+      return withMetaHeaders(
+        await handleFriendRequestByUsername(req, db, user.id),
+        requestId,
+      );
     }
 
     if (req.method === "POST" && route === "/social/friends/accept") {
-      return await handleFriendAccept(req, db, user.id);
+      return withMetaHeaders(await handleFriendAccept(req, db, user.id), requestId);
     }
 
     if (req.method === "GET" && route === "/social/friend-requests/incoming") {
-      return await handleIncomingFriendRequests(db, user.id, url);
+      return withMetaHeaders(
+        await handleIncomingFriendRequests(db, user.id, url),
+        requestId,
+      );
     }
 
     if (req.method === "GET" && route === "/users/me/profile-compare") {
-      return await handleProfileCompare(db, user.id, url);
+      return withMetaHeaders(await handleProfileCompare(db, user.id, url), requestId);
     }
 
     if (req.method === "PATCH" && route === "/users/me/profile") {
-      return await handlePatchMyProfile(req, db, user.id);
+      return withMetaHeaders(await handlePatchMyProfile(req, db, user.id), requestId);
     }
 
     if (req.method === "POST" && route === "/notifications/register-token") {
-      return await handleRegisterPushToken(req, db, user.id);
+      return withMetaHeaders(await handleRegisterPushToken(req, db, user.id), requestId);
     }
 
     if (req.method === "GET" && route === "/users/me/summary") {
-      return await handleUserSummary(db, user.id);
+      return withMetaHeaders(await handleUserSummary(db, user.id), requestId);
     }
 
     if (req.method === "GET" && route === "/users/me/badges") {
-      return await handleUserBadges(db, user.id);
+      return withMetaHeaders(await handleUserBadges(db, user.id), requestId);
     }
 
     if (req.method === "GET" && route === "/config/bootstrap") {
-      return await handleBootstrap(db, user.id, url);
+      return withMetaHeaders(await handleBootstrap(db, user.id, url), requestId);
     }
 
-    return errorResponse(404, `Unknown route: ${req.method} ${route}`);
+    if (req.method === "GET" && route === "/health") {
+      return withMetaHeaders(await handleHealth(), requestId);
+    }
+
+    return withMetaHeaders(
+      errorResponse(404, `Unknown route: ${req.method} ${route}`),
+      requestId,
+    );
   } catch (error) {
-    return errorResponse(500, (error as Error).message);
+    return withMetaHeaders(errorResponse(500, (error as Error).message), requestId);
   }
 });

@@ -1,0 +1,18 @@
+appId: com.passportquest.mobile.staging
+---
+- launchApp
+- runFlow:
+    when:
+      visible: "Pick your explorer name"
+    commands:
+      - tapOn: "e.g. atul_explorer"
+      - eraseText
+      - inputText: "qa_runner_android"
+      - tapOn: "Start Questing"
+- assertVisible: "Discovery Map"
+- tapOn: "Quests"
+- assertVisible: "Offline Sync"
+- tapOn: "Social"
+- assertVisible: "Social Feed"
+- tapOn: "Profile"
+- assertVisible: "Profile & Badges"

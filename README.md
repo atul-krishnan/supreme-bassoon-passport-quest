@@ -41,6 +41,7 @@ All routes are served by the Supabase Edge Function `v1` and map to:
 - `GET /v1/users/me/badges`
 - `PATCH /v1/users/me/profile`
 - `POST /v1/notifications/register-token`
+- `GET /v1/health`
 
 ## Local setup
 
@@ -68,7 +69,18 @@ npm run local:reset
 npm run local:functions
 ```
 
-5. Update `apps/mobile/app.json` `expo.extra.supabaseAnonKey` with your local anon key.
+5. Configure mobile runtime env.
+
+```bash
+cp apps/mobile/.env.example apps/mobile/.env.local
+```
+
+Minimum local values:
+
+- `APP_ENV=local`
+- `API_BASE_URL=http://127.0.0.1:54321/functions/v1/v1`
+- `SUPABASE_URL=http://127.0.0.1:54321`
+- `SUPABASE_PUBLISHABLE_KEY=<local anon/publishable key>`
 
 6. Start mobile app.
 
@@ -101,6 +113,7 @@ npm run local:status
 - India rollout gate: `/Users/atulkrishnan/Documents/Passport Quest/docs/india-expansion-gate.md`
 - Trip context model: `/Users/atulkrishnan/Documents/Passport Quest/docs/trip-context-model.md`
 - v1.1/v1.2 roadmap: `/Users/atulkrishnan/Documents/Passport Quest/docs/roadmap-v1.1-v1.2.md`
+- Testing + environments + release: `/Users/atulkrishnan/Documents/Passport Quest/docs/testing-environments-and-release.md`
 
 ## Next recommended steps
 
