@@ -50,20 +50,25 @@ jobs:
       - name: Install Supabase CLI
         run: npm run supabase:cli -- --version
 
-      - name: Push migrations to staging
+      - name: Link staging project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
           STAGING_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
         run: |
-          npm run supabase:cli -- db push --project-ref "$STAGING_PROJECT_REF" --password "$STAGING_DB_PASSWORD" --workdir .
+          npm run supabase:cli -- link --project-ref "$STAGING_PROJECT_REF" --password "$STAGING_DB_PASSWORD" --workdir .
+
+      - name: Push migrations to staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          npm run supabase:cli -- db push --linked --workdir .
 
       - name: Deploy Edge function v1 to staging
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
         run: |
-          npm run supabase:cli -- functions deploy v1 --project-ref "$STAGING_PROJECT_REF" --workdir .
+          npm run supabase:cli -- functions deploy v1 --linked --workdir .
 
       - name: Staging API smoke checks
         env:

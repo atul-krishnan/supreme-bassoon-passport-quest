@@ -50,20 +50,25 @@ jobs:
             exit 1
           fi
 
-      - name: Apply migrations to production
+      - name: Link production project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
           PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
         run: |
-          npm run supabase:cli -- db push --project-ref "$PROD_PROJECT_REF" --password "$PROD_DB_PASSWORD" --workdir .
+          npm run supabase:cli -- link --project-ref "$PROD_PROJECT_REF" --password "$PROD_DB_PASSWORD" --workdir .
+
+      - name: Apply migrations to production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          npm run supabase:cli -- db push --linked --workdir .
 
       - name: Deploy Edge function v1 to production
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
         run: |
-          npm run supabase:cli -- functions deploy v1 --project-ref "$PROD_PROJECT_REF" --workdir .
+          npm run supabase:cli -- functions deploy v1 --linked --workdir .
 
       - name: Production API smoke checks
         env:
