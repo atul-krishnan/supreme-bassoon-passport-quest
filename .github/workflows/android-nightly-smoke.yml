@@ -84,6 +84,9 @@ jobs:
 
       - name: Run Maestro Android smoke suite
         if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' || env.MANUAL_RUN_SMOKE == 'RUN_NOW' }}
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
+          MAESTRO_CLI_NO_ANALYTICS: "1"
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -97,5 +100,7 @@ jobs:
             adb start-server
             adb wait-for-device
             adb devices
+            adb shell settings put global package_verifier_enable 0 || true
+            adb shell settings put global verifier_verify_adb_installs 0 || true
             adb install -r "${{ steps.resolve_app.outputs.app_file }}"
             timeout 900 maestro test .maestro/android-smoke.yaml
