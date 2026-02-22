@@ -7,11 +7,34 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const apiBaseUrl =
   process.env.API_BASE_URL ?? `${supabaseUrl}/functions/v1/v1`;
 const cityId = process.env.CITY_ID ?? "blr";
+const retryAttempts = parsePositiveInt(
+  process.env.SMOKE_HTTP_RETRY_ATTEMPTS,
+  6,
+);
+const retryDelayMs = parsePositiveInt(process.env.SMOKE_HTTP_RETRY_DELAY_MS, 900);
+
+function parsePositiveInt(raw, fallback) {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
 
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isRetryableStatus(status) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
 async function http(path, token) {
@@ -34,6 +57,43 @@ async function http(path, token) {
   }
 
   return { response, json, text };
+}
+
+async function httpWithRetry(path, token, label) {
+  let lastResult = null;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
+    try {
+      const result = await http(path, token);
+      lastResult = result;
+      if (!isRetryableStatus(result.response.status) || attempt === retryAttempts) {
+        return result;
+      }
+
+      console.warn(
+        `[contracts:v1-smoke] ${label} attempt ${attempt}/${retryAttempts} returned ${result.response.status}; retrying...`,
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt === retryAttempts) {
+        throw error;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[contracts:v1-smoke] ${label} attempt ${attempt}/${retryAttempts} failed (${message}); retrying...`,
+      );
+    }
+
+    await sleep(retryDelayMs * attempt);
+  }
+
+  if (lastResult) {
+    return lastResult;
+  }
+
+  throw lastError ?? new Error(`Request failed for ${label}`);
 }
 
 function createServiceRoleClient() {
@@ -129,7 +189,10 @@ async function issueSmokeAccessToken(supabase) {
   });
 
   if (!passwordSignUp.error && passwordSignUp.data.session?.access_token) {
-    return passwordSignUp.data.session.access_token;
+    return {
+      token: passwordSignUp.data.session.access_token,
+      strategy: "signup_session",
+    };
   }
 
   const passwordSignIn = await supabase.auth.signInWithPassword({
@@ -163,7 +226,7 @@ async function main() {
   const token = authResult.token;
   assert(typeof token === "string", "No access token returned from auth");
 
-  const health = await http("/health", token);
+  const health = await httpWithRetry("/health", token, "health");
   assert(health.response.status === 200, `Health check failed: ${health.response.status} ${health.text}`);
   assert(health.response.headers.get("x-request-id"), "Missing response header: x-request-id");
   assert(health.response.headers.get("x-release-sha"), "Missing response header: x-release-sha");
@@ -172,7 +235,11 @@ async function main() {
   assert(typeof health.json?.releaseSha === "string", "Health response.releaseSha is required");
   assert(typeof health.json?.serverTime === "string", "Health response.serverTime is required");
 
-  const bootstrap = await http(`/config/bootstrap?cityId=${encodeURIComponent(cityId)}`, token);
+  const bootstrap = await httpWithRetry(
+    `/config/bootstrap?cityId=${encodeURIComponent(cityId)}`,
+    token,
+    "bootstrap",
+  );
   assert(
     bootstrap.response.status === 200,
     `Bootstrap check failed: ${bootstrap.response.status} ${bootstrap.text}`,
@@ -180,7 +247,7 @@ async function main() {
   assert(bootstrap.json?.cityId === cityId, "Bootstrap cityId mismatch");
   assert(bootstrap.json?.notificationPolicy, "Bootstrap notificationPolicy missing");
 
-  const summary = await http("/users/me/summary", token);
+  const summary = await httpWithRetry("/users/me/summary", token, "summary");
   assert(summary.response.status === 200, `Summary check failed: ${summary.response.status} ${summary.text}`);
   assert(typeof summary.json?.user?.id === "string", "Summary user.id missing");
   assert(typeof summary.json?.stats?.level === "number", "Summary stats.level missing");
