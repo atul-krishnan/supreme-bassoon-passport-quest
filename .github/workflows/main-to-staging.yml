@@ -90,7 +90,9 @@ jobs:
           npm run contracts:smoke
 
       - name: Build iOS staging artifact (optional)
+        id: ios_staging_build
         if: ${{ env.EAS_PROJECT_ID != '' && env.STAGING_SENTRY_DSN != '' }}
+        continue-on-error: true
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
@@ -107,6 +109,12 @@ jobs:
             export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"
           fi
           npx --yes eas-cli@14.5.0 build --platform ios --profile staging --non-interactive --no-wait
+
+      - name: Warn when staging iOS build is not ready
+        if: ${{ steps.ios_staging_build.outcome == 'failure' }}
+        run: |
+          echo "Staging deploy passed, but iOS build failed (likely missing EAS iOS credentials for non-interactive mode)."
+          echo "Run one interactive EAS iOS credential setup locally before requiring CI build as a gate."
 
       - name: Skip iOS staging artifact (EAS or Sentry not configured)
         if: ${{ env.EAS_PROJECT_ID == '' || env.STAGING_SENTRY_DSN == '' }}

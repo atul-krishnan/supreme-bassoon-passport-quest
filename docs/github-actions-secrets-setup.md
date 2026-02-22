@@ -50,6 +50,8 @@ Optional:
 - `PROD_SMOKE_TEST_EMAIL` and `PROD_SMOKE_TEST_PASSWORD` (optional explicit test user creds for production smoke checks)
 - `PROD_SUPABASE_SERVICE_ROLE_KEY` (recommended so production smoke checks can auto-provision an ephemeral confirmed user when anonymous auth is disabled)
 
+Note: staging iOS build is non-blocking in CI for lean pilot mode. If EAS iOS credentials are not configured yet, deploy + smoke gates pass and the workflow emits a warning for the build step.
+
 Quick audit command:
 
 ```bash
