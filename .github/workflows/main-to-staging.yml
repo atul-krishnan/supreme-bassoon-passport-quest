@@ -94,6 +94,7 @@ jobs:
         env:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EAS_PROJECT_SLUG: ${{ secrets.EAS_STAGING_PROJECT_SLUG }}
           SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
           API_BASE_URL: ${{ secrets.STAGING_API_BASE_URL }}

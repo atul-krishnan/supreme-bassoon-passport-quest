@@ -36,6 +36,9 @@ function optional(value: string | undefined): string {
 
 export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
   const appEnv = readAppEnv();
+  const appSlug =
+    process.env.EAS_PROJECT_SLUG?.trim() ??
+    (appEnv === "staging" ? "passport-quest-staging" : "passport-quest");
   const apiBaseUrl =
     process.env.API_BASE_URL?.trim() ??
     "http://127.0.0.1:54321/functions/v1/v1";
@@ -58,7 +61,7 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
   return {
     ...config,
     name: appEnv === "staging" ? "Passport Quest (Staging)" : "Passport Quest",
-    slug: "passport-quest",
+    slug: appSlug,
     scheme: "passportquest",
     version: "0.1.0",
     orientation: "portrait",

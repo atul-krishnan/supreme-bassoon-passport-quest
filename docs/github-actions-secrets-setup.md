@@ -39,6 +39,8 @@ Optional:
 - `SENTRY_DSN` (single shared DSN fallback used by both staging and production workflows)
 - `EAS_STAGING_PROJECT_ID` (required to run staging EAS build step in CI; if missing, staging workflow skips iOS build)
 - `EAS_PRODUCTION_PROJECT_ID` (required for production promotion workflow iOS build step)
+- `EAS_STAGING_PROJECT_SLUG` (optional override if staging project slug is not `passport-quest-staging`)
+- `EAS_PRODUCTION_PROJECT_SLUG` (optional override if production project slug is not `passport-quest`)
 - `STAGING_SENTRY_DSN` (optional override for staging; if absent, workflow falls back to `SENTRY_DSN`)
 - `PROD_SENTRY_DSN` (optional override for production; if absent, workflow falls back to `SENTRY_DSN`)
 - `STAGING_API_BASE_URL` (defaults to `${STAGING_SUPABASE_URL}/functions/v1/v1`)
@@ -80,6 +82,8 @@ gh secret set MAESTRO_APP_FILE --body "/path/to/staging-app.apk-or.ipa"
 gh secret set SENTRY_DSN --body "https://<key>@<org>.ingest.sentry.io/<id>"
 gh secret set EAS_STAGING_PROJECT_ID --body "your-eas-staging-project-id"
 gh secret set EAS_PRODUCTION_PROJECT_ID --body "your-eas-production-project-id"
+gh secret set EAS_STAGING_PROJECT_SLUG --body "passport-quest-staging"
+gh secret set EAS_PRODUCTION_PROJECT_SLUG --body "passport-quest"
 gh secret set STAGING_SENTRY_DSN --body "https://<key>@<org>.ingest.sentry.io/<id>"
 gh secret set PROD_SENTRY_DSN --body "https://<key>@<org>.ingest.sentry.io/<id>"
 gh secret set STAGING_SMOKE_TEST_EMAIL --body "smoke-staging@example.com"

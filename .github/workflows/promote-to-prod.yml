@@ -93,6 +93,7 @@ jobs:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
           EAS_PROJECT_ID: ${{ secrets.EAS_PRODUCTION_PROJECT_ID }}
+          EAS_PROJECT_SLUG: ${{ secrets.EAS_PRODUCTION_PROJECT_SLUG }}
           SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
           API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
@@ -112,6 +113,7 @@ jobs:
           EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
           EAS_PROJECT_ID: ${{ secrets.EAS_PRODUCTION_PROJECT_ID }}
+          EAS_PROJECT_SLUG: ${{ secrets.EAS_PRODUCTION_PROJECT_SLUG }}
         working-directory: apps/mobile
         run: |
           npx --yes eas-cli@14.5.0 submit --platform ios --profile production --latest --non-interactive
