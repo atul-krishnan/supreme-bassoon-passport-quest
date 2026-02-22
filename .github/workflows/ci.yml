@@ -10,6 +10,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Enforce PR size guardrail
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        env:
+          PR_MAX_CHANGED_LINES: ${{ vars.PR_MAX_CHANGED_LINES || '600' }}
+        with:
+          script: |
+            const maxChangedLines = Number(process.env.PR_MAX_CHANGED_LINES || "600");
+            const prNumber = context.payload.pull_request.number;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
+            const totalChanged = files.reduce(
+              (sum, file) => sum + (file.additions || 0) + (file.deletions || 0),
+              0,
+            );
+            core.info(
+              `PR #${prNumber} changed lines: ${totalChanged}. Guardrail max: ${maxChangedLines}.`,
+            );
+            if (totalChanged > maxChangedLines) {
+              core.setFailed(
+                `PR is too large (${totalChanged} changed lines). Split into smaller PRs or increase PR_MAX_CHANGED_LINES.`,
+              );
+            }
       - uses: actions/setup-node@v4
         with:
           node-version: "20"

@@ -4,6 +4,10 @@ Last updated: February 22, 2026
 
 This is the quick decision guide for when to run each GitHub Actions workflow.
 
+Team process rules:
+
+- `/Users/atulkrishnan/Documents/Passport Quest/docs/engineering-operating-rules.md`
+
 ## Core principle
 
 For pilot mode, keep build/deploy frequency low and intentional:
