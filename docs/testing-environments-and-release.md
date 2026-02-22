@@ -104,6 +104,16 @@ Sequence:
 2. If `ENABLE_ANDROID_NIGHTLY_SMOKE=true`, download APK from `MAESTRO_ANDROID_APP_URL`.
 3. Start Android emulator and execute `.maestro/android-smoke.yaml`.
 
+### Android staging APK build (manual)
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/build-android-staging-apk.yml`
+
+Sequence:
+
+1. Validate zero-cost policy and staging build secrets.
+2. Build Android staging artifact via EAS (`staging` profile with `buildType=apk`).
+3. Publish APK and build details links in workflow summary.
+
 ### Production promotion
 
 Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/promote-to-prod.yml`

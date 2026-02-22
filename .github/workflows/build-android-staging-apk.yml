@@ -1,0 +1,124 @@
+name: Build Android Staging APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Release SHA for build metadata"
+        required: false
+        type: string
+
+jobs:
+  build-android-staging-apk:
+    runs-on: ubuntu-latest
+    env:
+      STAGING_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN || secrets.SENTRY_DSN }}
+      EAS_PROJECT_ID: ${{ secrets.EAS_STAGING_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enforce zero-cost pilot policy
+        env:
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+          AUTO_SUBMIT_TESTFLIGHT: ${{ vars.AUTO_SUBMIT_TESTFLIGHT }}
+        run: npm run ops:check:zero-cost
+
+      - name: Preflight Android staging build secrets
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EAS_PROJECT_ID: ${{ env.EAS_PROJECT_ID }}
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_SENTRY_DSN: ${{ env.STAGING_SENTRY_DSN }}
+        run: |
+          missing=0
+          for key in EAS_TOKEN EAS_PROJECT_ID STAGING_SUPABASE_URL STAGING_SUPABASE_PUBLISHABLE_KEY STAGING_SENTRY_DSN; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Build Android staging APK with EAS
+        id: build_apk
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+          EAS_PROJECT_ID: ${{ env.EAS_PROJECT_ID }}
+          EAS_PROJECT_SLUG: ${{ secrets.EAS_STAGING_PROJECT_SLUG }}
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          API_BASE_URL: ${{ secrets.STAGING_API_BASE_URL }}
+          SENTRY_DSN: ${{ env.STAGING_SENTRY_DSN }}
+          APP_ENV: staging
+          RELEASE_SHA: ${{ github.event.inputs.release_sha || github.sha }}
+        working-directory: apps/mobile
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"
+          fi
+          npx --yes eas-cli@14.5.0 build --platform android --profile staging --non-interactive --wait --json > /tmp/eas-android-staging-build.json
+          node <<'NODE'
+          const fs = require("node:fs");
+          const payload = JSON.parse(fs.readFileSync("/tmp/eas-android-staging-build.json", "utf8"));
+          const build = Array.isArray(payload) ? payload[0] : payload;
+          const buildId = build?.id ?? "";
+          const buildStatus = build?.status ?? "";
+          const buildUrl =
+            build?.artifacts?.buildUrl ??
+            build?.artifacts?.applicationArchiveUrl ??
+            "";
+          const detailsUrl =
+            build?.logs?.buildDetailsPageUrl ??
+            build?.buildDetailsPageUrl ??
+            (buildId ? `https://expo.dev/accounts/${build?.account?.name ?? ""}/projects/${build?.project?.slug ?? ""}/builds/${buildId}` : "");
+
+          if (!buildId) {
+            throw new Error("EAS build output did not contain build id.");
+          }
+          if (buildStatus.toLowerCase() !== "finished") {
+            throw new Error(`EAS build status is ${buildStatus || "unknown"}, expected finished.`);
+          }
+
+          const outputPath = process.env.GITHUB_OUTPUT;
+          fs.appendFileSync(outputPath, `build_id=${buildId}\n`);
+          fs.appendFileSync(outputPath, `build_status=${buildStatus}\n`);
+          fs.appendFileSync(outputPath, `build_url=${buildUrl}\n`);
+          fs.appendFileSync(outputPath, `details_url=${detailsUrl}\n`);
+          NODE
+
+      - name: Upload raw EAS build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-android-staging-build
+          path: /tmp/eas-android-staging-build.json
+          if-no-files-found: error
+
+      - name: Publish APK links
+        run: |
+          {
+            echo "## Android Staging APK";
+            echo "";
+            echo "- Build id: \`${{ steps.build_apk.outputs.build_id }}\`";
+            echo "- Status: \`${{ steps.build_apk.outputs.build_status }}\`";
+            if [ -n "${{ steps.build_apk.outputs.build_url }}" ]; then
+              echo "- APK URL: ${{ steps.build_apk.outputs.build_url }}";
+            else
+              echo "- APK URL: not present in EAS response (check details page)";
+            fi
+            if [ -n "${{ steps.build_apk.outputs.details_url }}" ]; then
+              echo "- Details: ${{ steps.build_apk.outputs.details_url }}";
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

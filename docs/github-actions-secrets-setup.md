@@ -6,6 +6,7 @@ This checklist configures the workflows:
 
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/ci.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/main-to-staging.yml`
+- `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/build-android-staging-apk.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/android-nightly-smoke.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/staging-gate.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/prod-backend-release.yml`
@@ -40,7 +41,7 @@ Required:
 Optional:
 
 - `SENTRY_DSN` (single shared DSN fallback used by both staging and production workflows)
-- `EAS_STAGING_PROJECT_ID` (required to run staging EAS build step in CI; if missing, staging workflow skips iOS build)
+- `EAS_STAGING_PROJECT_ID` (required for staging EAS builds: iOS optional step and `build-android-staging-apk` workflow)
 - `EAS_PRODUCTION_PROJECT_ID` (required for production promotion workflow iOS build step)
 - `EAS_STAGING_PROJECT_SLUG` (optional override if staging project slug is not `passport-quest-staging`)
 - `EAS_PRODUCTION_PROJECT_SLUG` (optional override if production project slug is not `passport-quest`)
