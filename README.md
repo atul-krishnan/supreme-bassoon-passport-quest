@@ -114,6 +114,7 @@ npm run local:status
 - Trip context model: `/Users/atulkrishnan/Documents/Passport Quest/docs/trip-context-model.md`
 - v1.1/v1.2 roadmap: `/Users/atulkrishnan/Documents/Passport Quest/docs/roadmap-v1.1-v1.2.md`
 - Testing + environments + release: `/Users/atulkrishnan/Documents/Passport Quest/docs/testing-environments-and-release.md`
+- GitHub Actions secrets setup: `/Users/atulkrishnan/Documents/Passport Quest/docs/github-actions-secrets-setup.md`
 
 ## Next recommended steps
 

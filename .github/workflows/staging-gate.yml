@@ -19,6 +19,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Enforce zero-cost pilot policy
+        env:
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+          AUTO_SUBMIT_TESTFLIGHT: ${{ vars.AUTO_SUBMIT_TESTFLIGHT }}
+        run: npm run ops:check:zero-cost
+
       - name: Evaluate staging gate
         env:
           SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}

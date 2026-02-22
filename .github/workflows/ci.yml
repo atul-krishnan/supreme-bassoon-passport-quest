@@ -16,6 +16,10 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm ci
+      - name: Enforce zero-cost pilot policy
+        env:
+          AUTO_SUBMIT_TESTFLIGHT: ${{ vars.AUTO_SUBMIT_TESTFLIGHT }}
+        run: npm run ops:check:zero-cost
       - name: Prepare Docker socket for Supabase CLI
         run: |
           if [ -S /var/run/docker.sock ]; then

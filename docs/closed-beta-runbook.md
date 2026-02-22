@@ -23,11 +23,16 @@
 - request sent
 - request accepted
 - feed visibility
+5. Free-tier/quota watch:
+- Supabase project usage (DB/egress/auth) for both staging and production.
+- EAS build usage trend.
+- Pause non-critical build frequency if quotas are trending toward limits.
 
 Automation support:
 
 - CI `PR Verify` workflow enforces typecheck + unit tests + DB tests + API smoke checks.
 - `Staging Gate` workflow enforces release hard-stop metrics before promotion.
+- `ops:check:zero-cost` enforces no-branch low-cost policy in CI/workflows.
 
 ## Incident playbook
 

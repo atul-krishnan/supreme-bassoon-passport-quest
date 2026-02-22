@@ -7,8 +7,23 @@ Last updated: February 22, 2026
 | Environment | Backend | Mobile build | Primary purpose |
 | --- | --- | --- | --- |
 | Local | Supabase local stack | Expo dev client (`APP_ENV=local`) | Development, debugging, local contract checks |
-| Staging | Supabase staging project/branch | EAS profile `staging` (`com.passportquest.mobile.staging`) | Release candidate validation |
+| Staging | Supabase staging project (no branch) | EAS profile `staging` (`com.passportquest.mobile.staging`) | Release candidate validation |
 | Production | Supabase production project | EAS profile `production` (`com.passportquest.mobile`) | TestFlight beta and production usage |
+
+## Zero-cost pilot policy
+
+For Bangalore pilot, keep infrastructure spend near zero:
+
+1. Use a separate staging project, not Supabase branches.
+2. Keep `STAGING_PROJECT_REF` and `PROD_PROJECT_REF` different.
+3. Avoid adding paid observability/services until free-tier limits are actually hit.
+4. Keep `AUTO_SUBMIT_TESTFLIGHT=false` by default.
+
+Automation check:
+
+```bash
+npm run ops:check:zero-cost
+```
 
 ## Required mobile env contract
 

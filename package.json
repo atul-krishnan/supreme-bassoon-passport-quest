@@ -28,6 +28,8 @@
     "local:status": "npm run supabase:status",
     "contracts:smoke": "node scripts/contracts/v1-smoke.mjs",
     "staging:gate:check": "node scripts/gates/staging-gate-check.mjs",
+    "ops:check:github-config": "bash scripts/ops/check-github-config.sh",
+    "ops:check:zero-cost": "bash scripts/ops/check-zero-cost-pilot.sh",
     "security:audit": "npm audit --audit-level=high",
     "security:audit:json": "npm audit --json",
     "format": "prettier --write ."
