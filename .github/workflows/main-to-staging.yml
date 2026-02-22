@@ -127,4 +127,5 @@ jobs:
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           export PATH="$PATH:$HOME/.maestro/bin"
-          maestro test .maestro/ios-smoke.yaml --app-file "$MAESTRO_APP_FILE"
+          echo "MAESTRO_APP_FILE is set: ensure the staging app is installed on the test device before running flow."
+          maestro test .maestro/ios-smoke.yaml

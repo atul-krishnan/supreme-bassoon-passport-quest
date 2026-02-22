@@ -91,7 +91,11 @@ jobs:
           profile: pixel_7
           emulator-boot-timeout: 900
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
           script: |
             maestro --version
-            timeout 900 maestro test .maestro/android-smoke.yaml --app-file "${{ steps.resolve_app.outputs.app_file }}"
+            adb start-server
+            adb wait-for-device
+            adb devices
+            adb install -r "${{ steps.resolve_app.outputs.app_file }}"
+            timeout 900 maestro test .maestro/android-smoke.yaml
