@@ -114,6 +114,10 @@ Sequence:
 2. Build Android staging artifact via EAS (`staging` profile with `buildType=apk`).
 3. Publish APK and build details links in workflow summary.
 
+One-time prerequisite:
+
+- If Android keystore is not initialized in EAS yet, run one interactive Android staging build locally once, then rerun the workflow.
+
 ### Production promotion
 
 Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/promote-to-prod.yml`

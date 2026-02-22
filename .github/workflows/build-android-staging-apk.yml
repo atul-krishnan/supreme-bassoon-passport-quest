@@ -69,7 +69,21 @@ jobs:
           if [ -z "$API_BASE_URL" ]; then
             export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"
           fi
-          npx --yes eas-cli@14.5.0 build --platform android --profile staging --non-interactive --wait --json > /tmp/eas-android-staging-build.json
+          set +e
+          npx --yes eas-cli@14.5.0 build --platform android --profile staging --non-interactive --wait --json > /tmp/eas-android-staging-build.json 2>/tmp/eas-android-staging-build.stderr
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            if grep -q "Generating a new Keystore is not supported in --non-interactive mode" /tmp/eas-android-staging-build.stderr; then
+              echo "Android keystore is not initialized in EAS for this project."
+              echo "Run one-time from local machine:"
+              echo "  cd apps/mobile"
+              echo "  EAS_PROJECT_ID=<EAS_STAGING_PROJECT_ID> APP_ENV=staging SENTRY_DSN=<dsn> SUPABASE_URL=<staging_url> SUPABASE_PUBLISHABLE_KEY=<publishable_key> npx eas-cli@14.5.0 build --platform android --profile staging"
+              echo "Then rerun this workflow."
+            fi
+            cat /tmp/eas-android-staging-build.stderr
+            exit "$rc"
+          fi
           node <<'NODE'
           const fs = require("node:fs");
           const payload = JSON.parse(fs.readFileSync("/tmp/eas-android-staging-build.json", "utf8"));
@@ -105,6 +119,16 @@ jobs:
           name: eas-android-staging-build
           path: /tmp/eas-android-staging-build.json
           if-no-files-found: error
+
+      - name: Upload EAS build logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-android-staging-build-logs
+          path: |
+            /tmp/eas-android-staging-build.json
+            /tmp/eas-android-staging-build.stderr
+          if-no-files-found: warn
 
       - name: Publish APK links
         run: |
