@@ -8,6 +8,7 @@ This checklist configures the workflows:
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/main-to-staging.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/android-nightly-smoke.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/staging-gate.yml`
+- `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/prod-backend-release.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/promote-to-prod.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/prod-smoke-dry-run.yml`
 

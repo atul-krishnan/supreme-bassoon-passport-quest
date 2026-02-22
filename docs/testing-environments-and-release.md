@@ -116,6 +116,16 @@ Sequence:
 4. Build production iOS artifact.
 5. Optional TestFlight submit.
 
+### Production backend-only release (no iOS/TestFlight)
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/prod-backend-release.yml`
+
+Sequence:
+
+1. Apply production migrations.
+2. Deploy production `v1` function.
+3. Run production API smoke checks.
+
 ### Production smoke dry run (no deploy/build)
 
 Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/prod-smoke-dry-run.yml`
