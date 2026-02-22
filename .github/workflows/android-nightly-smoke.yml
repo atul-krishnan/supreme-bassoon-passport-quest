@@ -4,12 +4,24 @@ on:
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
+    inputs:
+      run_smoke:
+        description: "Type RUN_NOW to execute emulator smoke"
+        required: false
+        type: string
+      apk_url:
+        description: "Optional APK URL override (defaults to MAESTRO_ANDROID_APP_URL secret)"
+        required: false
+        type: string
 
 jobs:
   android-nightly-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     env:
       ENABLE_ANDROID_NIGHTLY_SMOKE: ${{ vars.ENABLE_ANDROID_NIGHTLY_SMOKE || 'false' }}
+      MANUAL_RUN_SMOKE: ${{ github.event.inputs.run_smoke || '' }}
+      MANUAL_APK_URL: ${{ github.event.inputs.apk_url || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,37 +56,42 @@ jobs:
           npm run contracts:smoke
 
       - name: Skip Android nightly smoke
-        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE != 'true' }}
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE != 'true' && env.MANUAL_RUN_SMOKE != 'RUN_NOW' }}
         run: echo "Skipping Android nightly smoke (ENABLE_ANDROID_NIGHTLY_SMOKE is not true)."
 
       - name: Resolve Android app artifact
         id: resolve_app
-        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' }}
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' || env.MANUAL_RUN_SMOKE == 'RUN_NOW' }}
         env:
           MAESTRO_ANDROID_APP_URL: ${{ secrets.MAESTRO_ANDROID_APP_URL }}
         run: |
-          if [ -z "$MAESTRO_ANDROID_APP_URL" ]; then
-            echo "ENABLE_ANDROID_NIGHTLY_SMOKE=true but MAESTRO_ANDROID_APP_URL is not set."
+          artifact_url="$MAESTRO_ANDROID_APP_URL"
+          if [ -n "$MANUAL_APK_URL" ]; then
+            artifact_url="$MANUAL_APK_URL"
+          fi
+          if [ -z "$artifact_url" ]; then
+            echo "No APK URL provided. Set MAESTRO_ANDROID_APP_URL secret or pass workflow input apk_url."
             exit 1
           fi
-          curl -fL "$MAESTRO_ANDROID_APP_URL" -o /tmp/passport-quest-staging.apk
+          curl -fL "$artifact_url" -o /tmp/passport-quest-staging.apk
           echo "app_file=/tmp/passport-quest-staging.apk" >> "$GITHUB_OUTPUT"
 
       - name: Install Maestro
-        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' }}
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' || env.MANUAL_RUN_SMOKE == 'RUN_NOW' }}
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Run Maestro Android smoke suite
-        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' }}
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' || env.MANUAL_RUN_SMOKE == 'RUN_NOW' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           arch: x86_64
           profile: pixel_7
+          emulator-boot-timeout: 900
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
             maestro --version
-            maestro test .maestro/android-smoke.yaml --app-file "${{ steps.resolve_app.outputs.app_file }}"
+            timeout 900 maestro test .maestro/android-smoke.yaml --app-file "${{ steps.resolve_app.outputs.app_file }}"

@@ -105,8 +105,23 @@ Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/a
 Sequence:
 
 1. Run staging API smoke contracts.
-2. If `ENABLE_ANDROID_NIGHTLY_SMOKE=true`, download APK from `MAESTRO_ANDROID_APP_URL`.
-3. Start Android emulator and execute `.maestro/android-smoke.yaml`.
+2. Execute emulator smoke when either:
+   - repo variable `ENABLE_ANDROID_NIGHTLY_SMOKE=true`, or
+   - manual dispatch input `run_smoke=RUN_NOW`.
+3. Download APK from workflow input `apk_url` if provided, otherwise from `MAESTRO_ANDROID_APP_URL`.
+4. Start Android emulator and execute `.maestro/android-smoke.yaml` with timeout guard.
+
+Manual one-off run (without enabling nightly variable):
+
+1. Run workflow `Android Nightly Smoke`.
+2. Set input `run_smoke=RUN_NOW`.
+3. Optionally pass `apk_url`; otherwise ensure `MAESTRO_ANDROID_APP_URL` is set.
+
+Sync latest successful APK URL to `MAESTRO_ANDROID_APP_URL`:
+
+```bash
+npm run ops:sync:maestro-android-url
+```
 
 ### Android staging APK build (manual)
 

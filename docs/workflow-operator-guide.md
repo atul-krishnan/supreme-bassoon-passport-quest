@@ -21,7 +21,7 @@ For pilot mode, keep build/deploy frequency low and intentional:
 | `Main To Staging` | push to `main` + manual | staging migrations + function deploy + staging API smoke | after merging code to `main` | low-medium, backend mutation |
 | `Staging Gate` | schedule + manual | KPI gate checks (latency/SLA/duplicates/crash-free) | daily and before release decision | low |
 | `Build Android Staging APK` | manual only | EAS Android APK build for staging + publish links | only when you want installable app binary | medium build minutes |
-| `Android Nightly Smoke` | schedule + manual | optional emulator smoke using external APK URL | enable later once APK URL automation is stable | medium |
+| `Android Nightly Smoke` | schedule + manual | optional emulator smoke using external APK URL | use manual `run_smoke=RUN_NOW` for one-off checks; keep nightly disabled by default | medium |
 | `Production Backend Release` | manual only | prod migrations + function deploy + prod smoke | backend-only production rollout | high, production mutation |
 | `Production Smoke Dry Run` | manual only | prod smoke checks without deploy/build | verify prod health any time | low |
 | `Promote To Production` | manual only | full prod path: migrations + functions + iOS build (+optional submit) | only when iOS/TestFlight release is intended | highest |
@@ -31,13 +31,17 @@ For pilot mode, keep build/deploy frequency low and intentional:
 Recommended toggles:
 
 - `ENABLE_STAGING_IOS_BUILD=false`
-- `ENABLE_ANDROID_NIGHTLY_SMOKE=false` (until you intentionally enable nightly emulator checks)
+- `ENABLE_ANDROID_NIGHTLY_SMOKE=false` (keep off by default; use manual input `run_smoke=RUN_NOW` for one-off emulator checks)
 - `AUTO_SUBMIT_TESTFLIGHT=false`
 
 APK build safety:
 
 - `Build Android Staging APK` requires workflow input `confirm_build=BUILD_NOW`.
 - If input is not exact, workflow exits before build steps.
+
+APK URL sync helper:
+
+- Run `npm run ops:sync:maestro-android-url` to update repository secret `MAESTRO_ANDROID_APP_URL` from the latest successful APK build run.
 
 ## Minimal weekly routine (Android-first)
 
