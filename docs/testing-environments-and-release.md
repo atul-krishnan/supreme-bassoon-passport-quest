@@ -88,6 +88,22 @@ Thresholds:
 - crash-free sessions `>= 99.5%`
 - duplicate accepted completions `= 0`
 
+Metric source behavior:
+
+1. completion/nearby p95 are auto-derived from `public.api_request_metrics` over a rolling window.
+2. if auto samples are below threshold, gate falls back to `STAGING_COMPLETION_P95_MS` / `STAGING_NEARBY_P95_MS`.
+3. offline sync SLA and crash-free sessions are provided via staging variables.
+
+### Android nightly smoke
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/android-nightly-smoke.yml`
+
+Sequence:
+
+1. Run staging API smoke contracts.
+2. If `ENABLE_ANDROID_NIGHTLY_SMOKE=true`, download APK from `MAESTRO_ANDROID_APP_URL`.
+3. Start Android emulator and execute `.maestro/android-smoke.yaml`.
+
 ### Production promotion
 
 Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/promote-to-prod.yml`

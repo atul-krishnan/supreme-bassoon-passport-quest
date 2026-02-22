@@ -6,6 +6,7 @@ This checklist configures the workflows:
 
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/ci.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/main-to-staging.yml`
+- `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/android-nightly-smoke.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/staging-gate.yml`
 - `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/promote-to-prod.yml`
 
@@ -46,6 +47,7 @@ Optional:
 - `STAGING_API_BASE_URL` (defaults to `${STAGING_SUPABASE_URL}/functions/v1/v1`)
 - `PROD_API_BASE_URL` (defaults to `${PROD_SUPABASE_URL}/functions/v1/v1`)
 - `MAESTRO_APP_FILE` (if set, staging workflow runs Maestro smoke test with this app artifact)
+- `MAESTRO_ANDROID_APP_URL` (HTTPS URL to a staging Android APK for nightly Maestro smoke)
 - `STAGING_SMOKE_TEST_EMAIL` and `STAGING_SMOKE_TEST_PASSWORD` (optional explicit test user creds for staging smoke checks)
 - `PROD_SMOKE_TEST_EMAIL` and `PROD_SMOKE_TEST_PASSWORD` (optional explicit test user creds for production smoke checks)
 - `PROD_SUPABASE_SERVICE_ROLE_KEY` (recommended so production smoke checks can auto-provision an ephemeral confirmed user when anonymous auth is disabled)
@@ -81,6 +83,7 @@ Optional:
 gh secret set STAGING_API_BASE_URL --body "https://your-staging-ref.supabase.co/functions/v1/v1"
 gh secret set PROD_API_BASE_URL --body "https://your-prod-ref.supabase.co/functions/v1/v1"
 gh secret set MAESTRO_APP_FILE --body "/path/to/staging-app.apk-or.ipa"
+gh secret set MAESTRO_ANDROID_APP_URL --body "https://example.com/path/to/staging.apk"
 gh secret set SENTRY_DSN --body "https://<key>@<org>.ingest.sentry.io/<id>"
 gh secret set EAS_STAGING_PROJECT_ID --body "your-eas-staging-project-id"
 gh secret set EAS_PRODUCTION_PROJECT_ID --body "your-eas-production-project-id"
@@ -108,6 +111,9 @@ Optional:
 
 - `AUTO_SUBMIT_TESTFLIGHT` (`true` to auto-submit after production build)
 - `ENABLE_STAGING_IOS_BUILD` (`true` to enable staging iOS build step in `Main To Staging`; default `false`)
+- `ENABLE_ANDROID_NIGHTLY_SMOKE` (`true` to enable Android nightly emulator + Maestro smoke run; default `false`)
+- `AUTO_METRIC_WINDOW_HOURS` (staging gate auto-metric lookback window, default `24`)
+- `AUTO_METRIC_MIN_SAMPLES` (minimum sample count for auto latency p95 before env fallback, default `30`)
 
 Example commands:
 
@@ -118,6 +124,9 @@ gh variable set STAGING_OFFLINE_SYNC_SLA_PCT --body "99.2"
 gh variable set STAGING_CRASH_FREE_SESSIONS_PCT --body "99.7"
 gh variable set AUTO_SUBMIT_TESTFLIGHT --body "false"
 gh variable set ENABLE_STAGING_IOS_BUILD --body "false"
+gh variable set ENABLE_ANDROID_NIGHTLY_SMOKE --body "false"
+gh variable set AUTO_METRIC_WINDOW_HOURS --body "24"
+gh variable set AUTO_METRIC_MIN_SAMPLES --body "30"
 ```
 
 ## Environment protection rules

@@ -17,3 +17,12 @@ jest.mock("expo-constants", () => ({
     projectId: "test-project",
   },
 }));
+
+jest.mock("@sentry/react-native", () => ({
+  init: jest.fn(),
+  setTag: jest.fn(),
+  setUser: jest.fn(),
+  captureException: jest.fn(),
+  withScope: (fn: (scope: { setExtra: (k: string, v: unknown) => void }) => void) =>
+    fn({ setExtra: jest.fn() }),
+}));

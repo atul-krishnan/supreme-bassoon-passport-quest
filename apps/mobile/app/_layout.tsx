@@ -20,6 +20,11 @@ import {
 import { APP_CITY_ID } from "../src/config/city";
 import { useSessionStore } from "../src/state/session";
 import { useOfflineSync } from "../src/hooks/useOfflineSync";
+import {
+  captureNonFatal,
+  initSentry,
+  setSentryUser,
+} from "../src/observability/sentry";
 
 let hasTrackedFirstThreeCompletions = false;
 
@@ -27,12 +32,21 @@ export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
   const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
   const isBootstrapped = useSessionStore((state) => state.isBootstrapped);
+  const userId = useSessionStore((state) => state.userId);
   const setNeedsOnboarding = useSessionStore((state) => state.setNeedsOnboarding);
   const { flushQueue } = useOfflineSync();
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
   const [isProfileGateLoading, setIsProfileGateLoading] = useState(true);
+
+  useEffect(() => {
+    initSentry();
+  }, []);
+
+  useEffect(() => {
+    setSentryUser(userId);
+  }, [userId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -45,6 +59,7 @@ export default function RootLayout() {
         if (!isMounted) {
           return;
         }
+        captureNonFatal(error, { scope: "bootstrap_session" });
         const message =
           error instanceof Error
             ? error.message
@@ -107,6 +122,9 @@ export default function RootLayout() {
           }
         }
       } catch {
+        captureNonFatal(new Error("summary bootstrap failed"), {
+          scope: "summary_bootstrap",
+        });
         if (isMounted) {
           // Allow app usage even if summary bootstrap fails.
           setNeedsOnboarding(false);
@@ -161,6 +179,9 @@ export default function RootLayout() {
           platform: result.platform,
         });
       } catch {
+        captureNonFatal(new Error("push token registration failed"), {
+          scope: "push_registration",
+        });
         // Push registration is best-effort in MVP v1.
       }
     };
@@ -173,7 +194,8 @@ export default function RootLayout() {
       return;
     }
 
-    void getBootstrapConfig(APP_CITY_ID).catch(() => {
+    void getBootstrapConfig(APP_CITY_ID).catch((error) => {
+      captureNonFatal(error, { scope: "bootstrap_config" });
       // Bootstrap config is best-effort at app load.
     });
   }, [isBootstrapped]);

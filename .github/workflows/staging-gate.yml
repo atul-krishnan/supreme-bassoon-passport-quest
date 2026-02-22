@@ -34,4 +34,6 @@ jobs:
           NEARBY_P95_MS: ${{ vars.STAGING_NEARBY_P95_MS }}
           OFFLINE_SYNC_SLA_PCT: ${{ vars.STAGING_OFFLINE_SYNC_SLA_PCT }}
           CRASH_FREE_SESSIONS_PCT: ${{ vars.STAGING_CRASH_FREE_SESSIONS_PCT }}
+          AUTO_METRIC_WINDOW_HOURS: ${{ vars.AUTO_METRIC_WINDOW_HOURS }}
+          AUTO_METRIC_MIN_SAMPLES: ${{ vars.AUTO_METRIC_MIN_SAMPLES }}
         run: npm run staging:gate:check

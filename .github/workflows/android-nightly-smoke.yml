@@ -1,0 +1,80 @@
+name: Android Nightly Smoke
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  android-nightly-smoke:
+    runs-on: ubuntu-latest
+    env:
+      ENABLE_ANDROID_NIGHTLY_SMOKE: ${{ vars.ENABLE_ANDROID_NIGHTLY_SMOKE || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enforce zero-cost pilot policy
+        env:
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
+          AUTO_SUBMIT_TESTFLIGHT: ${{ vars.AUTO_SUBMIT_TESTFLIGHT }}
+        run: npm run ops:check:zero-cost
+
+      - name: Staging API smoke checks
+        env:
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          API_BASE_URL: ${{ secrets.STAGING_API_BASE_URL }}
+          CITY_ID: blr
+          SMOKE_TEST_EMAIL: ${{ secrets.STAGING_SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.STAGING_SMOKE_TEST_PASSWORD }}
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            export API_BASE_URL="${SUPABASE_URL}/functions/v1/v1"
+          fi
+          npm run contracts:smoke
+
+      - name: Skip Android nightly smoke
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE != 'true' }}
+        run: echo "Skipping Android nightly smoke (ENABLE_ANDROID_NIGHTLY_SMOKE is not true)."
+
+      - name: Resolve Android app artifact
+        id: resolve_app
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' }}
+        env:
+          MAESTRO_ANDROID_APP_URL: ${{ secrets.MAESTRO_ANDROID_APP_URL }}
+        run: |
+          if [ -z "$MAESTRO_ANDROID_APP_URL" ]; then
+            echo "ENABLE_ANDROID_NIGHTLY_SMOKE=true but MAESTRO_ANDROID_APP_URL is not set."
+            exit 1
+          fi
+          curl -fL "$MAESTRO_ANDROID_APP_URL" -o /tmp/passport-quest-staging.apk
+          echo "app_file=/tmp/passport-quest-staging.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Install Maestro
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' }}
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run Maestro Android smoke suite
+        if: ${{ env.ENABLE_ANDROID_NIGHTLY_SMOKE == 'true' }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            maestro --version
+            maestro test .maestro/android-smoke.yaml --app-file "${{ steps.resolve_app.outputs.app_file }}"

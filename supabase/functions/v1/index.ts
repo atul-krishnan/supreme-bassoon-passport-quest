@@ -46,6 +46,43 @@ function makeServiceClient(req: Request): DbClient {
   });
 }
 
+function makeAdminServiceClient(): DbClient {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+async function logApiRequestMetric(
+  adminDb: DbClient,
+  payload: {
+    requestId: string;
+    route: string;
+    method: string;
+    statusCode: number;
+    latencyMs: number;
+    userId: string | null;
+  },
+) {
+  const { error } = await adminDb.from("api_request_metrics").insert({
+    request_id: payload.requestId,
+    route: payload.route,
+    method: payload.method,
+    status_code: payload.statusCode,
+    latency_ms: Math.max(0, Math.round(payload.latencyMs)),
+    user_id: payload.userId,
+    release_sha: RELEASE_SHA,
+  });
+
+  if (error) {
+    console.error(`[api_request_metrics] ${error.message}`);
+  }
+}
+
 function normalizeRoute(pathname: string): string {
   const segments = pathname.split("/").filter(Boolean);
   const v1Index = segments.lastIndexOf("v1");
@@ -703,6 +740,7 @@ async function handleBootstrap(
 }
 
 serve(async (req: Request) => {
+  const startedAtMs = Date.now();
   const requestId =
     req.headers.get("x-request-id")?.trim() || crypto.randomUUID();
 
@@ -716,103 +754,130 @@ serve(async (req: Request) => {
     });
   }
 
+  const url = new URL(req.url);
+  const route = normalizeRoute(url.pathname);
+  let adminDb: DbClient | null = null;
+
+  try {
+    adminDb = makeAdminServiceClient();
+  } catch {
+    adminDb = null;
+  }
+
+  const finalize = async (
+    response: Response,
+    userId: string | null,
+  ): Promise<Response> => {
+    const responseWithHeaders = withMetaHeaders(response, requestId);
+
+    if (adminDb) {
+      await logApiRequestMetric(adminDb, {
+        requestId,
+        route,
+        method: req.method,
+        statusCode: responseWithHeaders.status,
+        latencyMs: Date.now() - startedAtMs,
+        userId,
+      });
+    }
+
+    return responseWithHeaders;
+  };
+
   let user: { id: string } | null = null;
 
   try {
     user = await requireAuthUser(req);
   } catch (error) {
-    return withMetaHeaders(
+    return finalize(
       errorResponse(500, `Auth client init failed: ${(error as Error).message}`),
-      requestId,
+      null,
     );
   }
 
   if (!user) {
-    return withMetaHeaders(errorResponse(401, "Unauthorized"), requestId);
+    return finalize(errorResponse(401, "Unauthorized"), null);
   }
-
-  const url = new URL(req.url);
-  const route = normalizeRoute(url.pathname);
 
   let db: DbClient;
 
   try {
     db = makeServiceClient(req);
   } catch (error) {
-    return withMetaHeaders(errorResponse(500, (error as Error).message), requestId);
+    return finalize(errorResponse(500, (error as Error).message), user.id);
   }
 
   try {
     if (req.method === "GET" && route === "/quests/nearby") {
-      return withMetaHeaders(await handleNearby(req, db, url), requestId);
+      return finalize(await handleNearby(req, db, url), user.id);
     }
 
     if (req.method === "POST" && route === "/quests/complete") {
-      return withMetaHeaders(await handleComplete(req, db, user.id), requestId);
+      return finalize(await handleComplete(req, db, user.id), user.id);
     }
 
     if (req.method === "GET" && route === "/social/feed") {
-      return withMetaHeaders(await handleSocialFeed(db, user.id, url), requestId);
+      return finalize(await handleSocialFeed(db, user.id, url), user.id);
     }
 
     if (req.method === "POST" && route === "/social/friends/request") {
-      return withMetaHeaders(await handleFriendRequest(req, db, user.id), requestId);
+      return finalize(await handleFriendRequest(req, db, user.id), user.id);
     }
 
     if (
       req.method === "POST" &&
       route === "/social/friends/request-by-username"
     ) {
-      return withMetaHeaders(
+      return finalize(
         await handleFriendRequestByUsername(req, db, user.id),
-        requestId,
+        user.id,
       );
     }
 
     if (req.method === "POST" && route === "/social/friends/accept") {
-      return withMetaHeaders(await handleFriendAccept(req, db, user.id), requestId);
+      return finalize(await handleFriendAccept(req, db, user.id), user.id);
     }
 
     if (req.method === "GET" && route === "/social/friend-requests/incoming") {
-      return withMetaHeaders(
+      return finalize(
         await handleIncomingFriendRequests(db, user.id, url),
-        requestId,
+        user.id,
       );
     }
 
     if (req.method === "GET" && route === "/users/me/profile-compare") {
-      return withMetaHeaders(await handleProfileCompare(db, user.id, url), requestId);
+      return finalize(await handleProfileCompare(db, user.id, url), user.id);
     }
 
     if (req.method === "PATCH" && route === "/users/me/profile") {
-      return withMetaHeaders(await handlePatchMyProfile(req, db, user.id), requestId);
+      return finalize(await handlePatchMyProfile(req, db, user.id), user.id);
     }
 
     if (req.method === "POST" && route === "/notifications/register-token") {
-      return withMetaHeaders(await handleRegisterPushToken(req, db, user.id), requestId);
+      return finalize(await handleRegisterPushToken(req, db, user.id), user.id);
     }
 
     if (req.method === "GET" && route === "/users/me/summary") {
-      return withMetaHeaders(await handleUserSummary(db, user.id), requestId);
+      return finalize(await handleUserSummary(db, user.id), user.id);
     }
 
     if (req.method === "GET" && route === "/users/me/badges") {
-      return withMetaHeaders(await handleUserBadges(db, user.id), requestId);
+      return finalize(await handleUserBadges(db, user.id), user.id);
     }
 
     if (req.method === "GET" && route === "/config/bootstrap") {
-      return withMetaHeaders(await handleBootstrap(db, user.id, url), requestId);
+      return finalize(await handleBootstrap(db, user.id, url), user.id);
     }
 
     if (req.method === "GET" && route === "/health") {
-      return withMetaHeaders(await handleHealth(), requestId);
+      return finalize(await handleHealth(), user.id);
     }
 
-    return withMetaHeaders(
+    return finalize(
       errorResponse(404, `Unknown route: ${req.method} ${route}`),
-      requestId,
+      user.id,
     );
   } catch (error) {
-    return withMetaHeaders(errorResponse(500, (error as Error).message), requestId);
+    return finalize(errorResponse(500, (error as Error).message), user.id);
   }
 });

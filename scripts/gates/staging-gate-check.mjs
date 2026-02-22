@@ -3,8 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 const REQUIRED_ENV = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "COMPLETION_P95_MS",
-  "NEARBY_P95_MS",
   "OFFLINE_SYNC_SLA_PCT",
   "CRASH_FREE_SESSIONS_PCT",
 ];
@@ -30,6 +28,30 @@ function asNumber(name) {
     throw new Error(`${name} must be a finite number`);
   }
   return value;
+}
+
+function optionalNumber(name) {
+  const value = process.env[name];
+  if (!value || value.trim().length === 0) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${name} must be a finite number when provided`);
+  }
+  return parsed;
+}
+
+function percentile(values, p) {
+  if (!values.length) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(sorted.length * p) - 1),
+  );
+  return sorted[index];
 }
 
 async function loadAcceptedCompletions(supabase) {
@@ -60,10 +82,81 @@ function countDuplicates(rows) {
   return duplicates;
 }
 
+async function loadRouteP95(supabase, route, method, sinceIso) {
+  const { data, error } = await supabase
+    .from("api_request_metrics")
+    .select("latency_ms")
+    .eq("route", route)
+    .eq("method", method)
+    .gte("created_at", sinceIso)
+    .lt("status_code", 500)
+    .limit(20000);
+
+  if (error) {
+    if (/api_request_metrics/i.test(error.message) && /does not exist/i.test(error.message)) {
+      return { samples: 0, p95: null };
+    }
+    throw new Error(`Failed loading api_request_metrics for ${method} ${route}: ${error.message}`);
+  }
+
+  const latencies = (data ?? [])
+    .map((row) => Number(row.latency_ms))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
+  return {
+    samples: latencies.length,
+    p95: percentile(latencies, 0.95),
+  };
+}
+
+function resolveLatencyMetric({
+  metricName,
+  autoMetric,
+  fallbackEnvName,
+  minSamples,
+}) {
+  if (typeof autoMetric.p95 === "number" && autoMetric.samples >= minSamples) {
+    return {
+      value: autoMetric.p95,
+      source: "auto_db",
+      samples: autoMetric.samples,
+    };
+  }
+
+  const fallback = optionalNumber(fallbackEnvName);
+  if (typeof fallback === "number") {
+    return {
+      value: fallback,
+      source: "fallback_env",
+      samples: autoMetric.samples,
+    };
+  }
+
+  throw new Error(
+    [
+      `Missing ${metricName}.`,
+      `Automated metric had ${autoMetric.samples} samples (min required: ${minSamples}).`,
+      `Set ${fallbackEnvName} as fallback if staging volume is low.`,
+    ].join(" "),
+  );
+}
+
 async function main() {
   for (const key of REQUIRED_ENV) {
     requireEnv(key);
   }
+
+  const autoMetricWindowHours = Math.max(
+    1,
+    Math.floor(optionalNumber("AUTO_METRIC_WINDOW_HOURS") ?? 24),
+  );
+  const minAutoSamples = Math.max(
+    1,
+    Math.floor(optionalNumber("AUTO_METRIC_MIN_SAMPLES") ?? 30),
+  );
+  const sinceIso = new Date(
+    Date.now() - autoMetricWindowHours * 60 * 60 * 1000,
+  ).toISOString();
 
   const supabase = createClient(
     requireEnv("SUPABASE_URL"),
@@ -71,15 +164,41 @@ async function main() {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 
-  const [acceptedRows] = await Promise.all([loadAcceptedCompletions(supabase)]);
-  const duplicateAccepted = countDuplicates(acceptedRows);
+  const [acceptedRows, completionAuto, nearbyAuto] = await Promise.all([
+    loadAcceptedCompletions(supabase),
+    loadRouteP95(supabase, "/quests/complete", "POST", sinceIso),
+    loadRouteP95(supabase, "/quests/nearby", "GET", sinceIso),
+  ]);
+
+  const completionMetric = resolveLatencyMetric({
+    metricName: "completion p95",
+    autoMetric: completionAuto,
+    fallbackEnvName: "COMPLETION_P95_MS",
+    minSamples: minAutoSamples,
+  });
+
+  const nearbyMetric = resolveLatencyMetric({
+    metricName: "nearby p95",
+    autoMetric: nearbyAuto,
+    fallbackEnvName: "NEARBY_P95_MS",
+    minSamples: minAutoSamples,
+  });
 
   const metrics = {
-    completionP95Ms: asNumber("COMPLETION_P95_MS"),
-    nearbyP95Ms: asNumber("NEARBY_P95_MS"),
+    completionP95Ms: completionMetric.value,
+    nearbyP95Ms: nearbyMetric.value,
     offlineSyncSlaPct: asNumber("OFFLINE_SYNC_SLA_PCT"),
     crashFreeSessionsPct: asNumber("CRASH_FREE_SESSIONS_PCT"),
-    duplicateAccepted,
+    duplicateAccepted: countDuplicates(acceptedRows),
+  };
+
+  const metricSources = {
+    completionP95Ms: completionMetric.source,
+    nearbyP95Ms: nearbyMetric.source,
+    windowHours: autoMetricWindowHours,
+    minSamples: minAutoSamples,
+    completionSamples: completionMetric.samples,
+    nearbySamples: nearbyMetric.samples,
   };
 
   const failures = [];
@@ -105,7 +224,7 @@ async function main() {
     failures.push(`duplicate accepted completions ${metrics.duplicateAccepted} (must be 0)`);
   }
 
-  console.log(JSON.stringify({ metrics, failures }, null, 2));
+  console.log(JSON.stringify({ metrics, metricSources, failures }, null, 2));
 
   if (failures.length > 0) {
     throw new Error(`Staging gate failed: ${failures.join("; ")}`);
