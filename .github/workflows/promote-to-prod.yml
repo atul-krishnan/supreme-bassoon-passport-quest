@@ -67,8 +67,9 @@ jobs:
       - name: Deploy Edge function v1 to production
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROD_PROJECT_REF: ${{ secrets.PROD_PROJECT_REF }}
         run: |
-          npm run supabase:cli -- functions deploy v1 --linked --workdir .
+          npm run supabase:cli -- functions deploy v1 --project-ref "$PROD_PROJECT_REF" --workdir .
 
       - name: Production API smoke checks
         env:
