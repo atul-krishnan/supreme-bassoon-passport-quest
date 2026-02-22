@@ -14,23 +14,6 @@ function assert(condition, message) {
   }
 }
 
-function decodeJwtClaims(token) {
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  try {
-    const payload = parts[1]
-      .replace(/-/g, "+")
-      .replace(/_/g, "/")
-      .padEnd(Math.ceil(parts[1].length / 4) * 4, "=");
-    return JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
-  } catch {
-    return null;
-  }
-}
-
 async function http(path, token) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
@@ -180,25 +163,6 @@ async function main() {
   const token = authResult.token;
   assert(typeof token === "string", "No access token returned from auth");
 
-  const tokenClaims = decodeJwtClaims(token);
-  console.log(
-    JSON.stringify(
-      {
-        smokeAuthStrategy: authResult.strategy,
-        tokenMeta: {
-          segments: token.split(".").length,
-          hasClaims: Boolean(tokenClaims),
-          iss: typeof tokenClaims?.iss === "string" ? tokenClaims.iss : null,
-          aud: tokenClaims?.aud ?? null,
-          role: typeof tokenClaims?.role === "string" ? tokenClaims.role : null,
-          hasSub: typeof tokenClaims?.sub === "string",
-        },
-      },
-      null,
-      2,
-    ),
-  );
-
   const health = await http("/health", token);
   assert(health.response.status === 200, `Health check failed: ${health.response.status} ${health.text}`);
   assert(health.response.headers.get("x-request-id"), "Missing response header: x-request-id");
@@ -225,6 +189,7 @@ async function main() {
     JSON.stringify(
       {
         ok: true,
+        authStrategy: authResult.strategy,
         apiBaseUrl,
         cityId,
         health: {
