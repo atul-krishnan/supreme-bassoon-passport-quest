@@ -116,6 +116,16 @@ Sequence:
 4. Build production iOS artifact.
 5. Optional TestFlight submit.
 
+### Production smoke dry run (no deploy/build)
+
+Workflow file: `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/prod-smoke-dry-run.yml`
+
+Sequence:
+
+1. Validate zero-cost policy and production smoke secrets.
+2. Execute production `v1` smoke contracts (`/health`, bootstrap, summary).
+3. Skip migrations, function deploy, iOS build, and TestFlight submission.
+
 ## Mobile QA mode
 
 Visible only in non-production builds from Profile tab.
