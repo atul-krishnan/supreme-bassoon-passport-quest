@@ -6,8 +6,13 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": ["**/*"],
-    "plugins": ["expo-router", "expo-sqlite"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.passportquest.mobile"
@@ -19,6 +24,12 @@
         "ACCESS_COARSE_LOCATION",
         "POST_NOTIFICATIONS"
       ]
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3bda073a-b6c8-496b-87df-51265167acf6"
     }
   }
 }
