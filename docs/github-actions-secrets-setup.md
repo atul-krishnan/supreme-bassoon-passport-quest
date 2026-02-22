@@ -201,3 +201,11 @@ After setting secrets/vars:
 2. Confirm staging deploy, smoke contracts, and build steps pass.
 3. Run `Staging Gate` and confirm threshold evaluation passes.
 4. Run `Promote To Production` from approved SHA.
+
+## Manual APK trigger guard
+
+Workflow `/Users/atulkrishnan/Documents/Passport Quest/.github/workflows/build-android-staging-apk.yml` requires:
+
+- workflow input `confirm_build` set to exact value `BUILD_NOW`.
+
+This is intentional to avoid accidental APK generation during pilot mode.

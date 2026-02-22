@@ -3,6 +3,10 @@ name: Build Android Staging APK
 on:
   workflow_dispatch:
     inputs:
+      confirm_build:
+        description: "Type BUILD_NOW to allow APK creation"
+        required: true
+        type: string
       release_sha:
         description: "Release SHA for build metadata"
         required: false
@@ -15,6 +19,13 @@ jobs:
       STAGING_SENTRY_DSN: ${{ secrets.STAGING_SENTRY_DSN || secrets.SENTRY_DSN }}
       EAS_PROJECT_ID: ${{ secrets.EAS_STAGING_PROJECT_ID }}
     steps:
+      - name: Require explicit build confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_build }}" != "BUILD_NOW" ]; then
+            echo "Blocked: confirm_build must be exactly BUILD_NOW."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4

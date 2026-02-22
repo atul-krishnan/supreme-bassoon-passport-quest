@@ -2,6 +2,10 @@
 
 Last updated: February 22, 2026
 
+Operator decision guide:
+
+- `/Users/atulkrishnan/Documents/Passport Quest/docs/workflow-operator-guide.md`
+
 ## Environment topology
 
 | Environment | Backend | Mobile build | Primary purpose |
@@ -113,6 +117,7 @@ Sequence:
 1. Validate zero-cost policy and staging build secrets.
 2. Build Android staging artifact via EAS (`staging` profile with `buildType=apk`).
 3. Publish APK and build details links in workflow summary.
+4. Requires explicit workflow input: `confirm_build=BUILD_NOW`.
 
 One-time prerequisite:
 
