@@ -116,6 +116,7 @@ npm run local:status
 - Testing + environments + release: `/Users/atulkrishnan/Documents/Passport Quest/docs/testing-environments-and-release.md`
 - GitHub Actions secrets setup: `/Users/atulkrishnan/Documents/Passport Quest/docs/github-actions-secrets-setup.md`
 - Engineering operating rules: `/Users/atulkrishnan/Documents/Passport Quest/docs/engineering-operating-rules.md`
+- Observability playbook (Sentry + PostHog): `/Users/atulkrishnan/Documents/Passport Quest/docs/observability-playbook.md`
 
 ## Next recommended steps
 

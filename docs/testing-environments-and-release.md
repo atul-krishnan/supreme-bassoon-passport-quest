@@ -5,6 +5,7 @@ Last updated: February 22, 2026
 Operator decision guide:
 
 - `/Users/atulkrishnan/Documents/Passport Quest/docs/workflow-operator-guide.md`
+- `/Users/atulkrishnan/Documents/Passport Quest/docs/observability-playbook.md`
 
 ## Environment topology
 
