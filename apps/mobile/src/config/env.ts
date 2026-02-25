@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 
 export type RuntimeAppEnv = "local" | "staging" | "production";
 
@@ -10,6 +11,8 @@ export type AppEnv = {
   supabaseAnonKey?: string;
   posthogHost?: string;
   posthogApiKey?: string;
+  googleMapsApiKey?: string;
+  googleMapsAndroidApiKey?: string;
   sentryDsn?: string;
   releaseSha?: string;
   productionSupabaseProjectRef?: string;
@@ -40,10 +43,26 @@ function optionalString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function normalizeLocalhostForAndroid(url: string): string {
+  if (Platform.OS !== "android") {
+    return url;
+  }
+
+  return url
+    .replace("http://127.0.0.1", "http://10.0.2.2")
+    .replace("https://127.0.0.1", "https://10.0.2.2")
+    .replace("http://localhost", "http://10.0.2.2")
+    .replace("https://localhost", "https://10.0.2.2");
+}
+
 const runtimeEnv: AppEnv = {
   appEnv: requireAppEnv(extras.appEnv),
-  apiBaseUrl: requireString("apiBaseUrl", extras.apiBaseUrl),
-  supabaseUrl: requireString("supabaseUrl", extras.supabaseUrl),
+  apiBaseUrl: normalizeLocalhostForAndroid(
+    requireString("apiBaseUrl", extras.apiBaseUrl),
+  ),
+  supabaseUrl: normalizeLocalhostForAndroid(
+    requireString("supabaseUrl", extras.supabaseUrl),
+  ),
   supabasePublishableKey: requireString(
     "supabasePublishableKey",
     extras.supabasePublishableKey ?? extras.supabaseAnonKey,
@@ -51,6 +70,10 @@ const runtimeEnv: AppEnv = {
   supabaseAnonKey: optionalString(extras.supabaseAnonKey),
   posthogHost: optionalString(extras.posthogHost),
   posthogApiKey: optionalString(extras.posthogApiKey),
+  googleMapsApiKey: optionalString(extras.googleMapsApiKey),
+  googleMapsAndroidApiKey: optionalString(
+    extras.googleMapsAndroidApiKey ?? extras.googleMapsApiKey,
+  ),
   sentryDsn: optionalString(extras.sentryDsn),
   releaseSha: optionalString(extras.releaseSha),
   productionSupabaseProjectRef: optionalString(extras.productionSupabaseProjectRef),

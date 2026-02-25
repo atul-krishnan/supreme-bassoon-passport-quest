@@ -16,7 +16,7 @@
     "mobile:test:ci": "npm run test:ci --workspace @passport-quest/mobile",
     "maestro:ios:smoke": "maestro test .maestro/ios-smoke.yaml",
     "maestro:android:smoke": "maestro test .maestro/android-smoke.yaml",
-    "supabase:cli": "DOCKER_HOST=unix:///tmp/docker.sock npx --yes supabase@2.53.4",
+    "supabase:cli": "npx --yes supabase@2.53.4",
     "supabase:up": "npm run supabase:cli -- start --workdir . --exclude vector --exclude logflare",
     "supabase:reset": "npm run supabase:cli -- db reset --yes --workdir .",
     "supabase:functions": "npm run supabase:cli -- functions serve --workdir .",
