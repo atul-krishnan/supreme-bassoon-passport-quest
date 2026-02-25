@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import * as Location from "expo-location";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import type { Quest } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { getNearbyQuests, getUserSummary } from "../../src/api/endpoints";
 import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
+import { env } from "../../src/config/env";
 import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { theme } from "../../src/theme";
 import {
@@ -170,6 +171,8 @@ export default function DiscoveryMapScreen() {
   );
 
   const featuredQuest = nearbyQuery.data?.quests?.[0];
+  const isAndroidMapKeyMissing =
+    Platform.OS === "android" && !env.googleMapsAndroidApiKey;
 
   const handleUseTestLocation = () => {
     setLocationOverride({
@@ -220,35 +223,44 @@ export default function DiscoveryMapScreen() {
         ) : null}
 
         <View style={styles.mapWrap}>
-          <MapView
-            style={styles.map}
-            customMapStyle={MAP_DARK_STYLE}
-            initialRegion={mapRegion}
-            region={mapRegion}
-          >
-            {coords ? (
-              <Marker
-                coordinate={{ latitude: coords.lat, longitude: coords.lng }}
-                title="You are here"
-                pinColor={theme.colors.accentCyan}
-              />
-            ) : null}
-            {(nearbyQuery.data?.quests ?? []).map((quest) => (
-              <Marker
-                key={quest.id}
-                coordinate={{
-                  latitude: Number(quest.geofence.lat),
-                  longitude: Number(quest.geofence.lng),
-                }}
-                title={quest.title}
-                description={`${quest.xpReward} XP reward`}
-                pinColor={theme.colors.accentPurple}
-                onCalloutPress={() => openQuestDetail(quest)}
-              />
-            ))}
-          </MapView>
+          {isAndroidMapKeyMissing ? (
+            <View style={styles.mapFallback}>
+              <Text style={styles.mapFallbackTitle}>Map setup required</Text>
+              <Text style={styles.mapFallbackBody}>
+                Add `GOOGLE_MAPS_ANDROID_API_KEY` (or `GOOGLE_MAPS_API_KEY`) to
+                `apps/mobile/.env`, then rebuild Android.
+              </Text>
+            </View>
+          ) : (
+            <MapView
+              style={styles.map}
+              customMapStyle={MAP_DARK_STYLE}
+              initialRegion={mapRegion}
+              region={mapRegion}
+            >
+              {coords ? (
+                <Marker
+                  coordinate={{ latitude: coords.lat, longitude: coords.lng }}
+                  title="You are here"
+                  pinColor={theme.colors.accentCyan}
+                />
+              ) : null}
+              {(nearbyQuery.data?.quests ?? []).map((quest) => (
+                <Marker
+                  key={quest.id}
+                  coordinate={{
+                    latitude: Number(quest.geofence.lat),
+                    longitude: Number(quest.geofence.lng),
+                  }}
+                  title={quest.title}
+                  description={`${quest.xpReward} XP reward`}
+                  pinColor={theme.colors.accentPurple}
+                  onCalloutPress={() => openQuestDetail(quest)}
+                />
+              ))}
+            </MapView>
+          )}
         </View>
-
         {nearbyQuery.isLoading ? (
           <LoadingShimmer label="Finding nearby quests..." />
         ) : null}
@@ -326,5 +338,25 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapFallback: {
+    flex: 1,
+    backgroundColor: "#081327",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.xs,
+  },
+  mapFallbackTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.title.fontSize,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  mapFallbackBody: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.body.fontSize,
+    lineHeight: theme.typography.body.lineHeight,
+    textAlign: "center",
   },
 });

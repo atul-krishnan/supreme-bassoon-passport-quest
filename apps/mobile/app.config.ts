@@ -52,6 +52,9 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
     process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ??
     process.env.SUPABASE_ANON_KEY?.trim() ??
     (appEnv === "local" ? LOCAL_SUPABASE_ANON_FALLBACK : "");
+  const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  const googleMapsAndroidApiKey =
+    process.env.GOOGLE_MAPS_ANDROID_API_KEY?.trim() ?? googleMapsApiKey;
 
   if (
     appEnv === "staging" &&
@@ -86,6 +89,16 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
         appEnv === "staging"
           ? "com.passportquest.mobile.staging"
           : "com.passportquest.mobile",
+      config: {
+        ...(config.android?.config ?? {}),
+        ...(googleMapsAndroidApiKey
+          ? {
+              googleMaps: {
+                apiKey: googleMapsAndroidApiKey,
+              },
+            }
+          : {}),
+      },
       permissions: [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -105,6 +118,10 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
       supabaseAnonKey: optional(process.env.SUPABASE_ANON_KEY),
       posthogHost: optional(process.env.POSTHOG_HOST),
       posthogApiKey: optional(process.env.POSTHOG_API_KEY),
+      googleMapsApiKey: optional(process.env.GOOGLE_MAPS_API_KEY),
+      googleMapsAndroidApiKey: optional(
+        process.env.GOOGLE_MAPS_ANDROID_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY,
+      ),
       sentryDsn: requireWhenRemote(appEnv, "SENTRY_DSN", process.env.SENTRY_DSN),
       releaseSha: optional(process.env.RELEASE_SHA || process.env.GITHUB_SHA),
       productionSupabaseProjectRef: PROD_SUPABASE_PROJECT_REF,
