@@ -73,6 +73,109 @@ export type BootstrapConfig = {
   };
 };
 
+export type TripContextType = "solo" | "couple" | "family" | "friends";
+export type TripPace = "relaxed" | "balanced" | "active";
+export type PlanBudgetBand = "low" | "medium" | "high";
+
+export type TripContextStartRequest = {
+  cityId: CityId;
+  contextType: TripContextType;
+  timeBudgetMin: number;
+  budget: PlanBudgetBand;
+  pace: TripPace;
+  vibeTags?: string[];
+  constraints?: Record<string, unknown>;
+};
+
+export type TripContextUpdateRequest = {
+  contextType?: TripContextType;
+  timeBudgetMin?: number;
+  budget?: PlanBudgetBand;
+  pace?: TripPace;
+  vibeTags?: string[];
+  constraints?: Record<string, unknown>;
+};
+
+export type TripContextResponse = {
+  tripContextId: string;
+  status: "active" | "completed" | "cancelled" | "not_found";
+  cityId?: CityId;
+  contextType?: TripContextType;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type PlanStop = {
+  questId: string;
+  title: string;
+  order: number;
+  visitDurationMin: number;
+  storySnippet: string;
+  practicalDetails: string[];
+  heroImageUrl?: string;
+};
+
+export type PlanBundle = {
+  planId: string;
+  title: string;
+  summary: string;
+  estimatedDurationMin: number;
+  estimatedSpendBand: PlanBudgetBand;
+  whyRecommended: string[];
+  stops: PlanStop[];
+};
+
+export type RecommendedPlansResponse = {
+  tripContextId: string;
+  cityId: CityId;
+  plans: PlanBundle[];
+};
+
+export type RecommendationFeedbackRequest = {
+  tripContextId: string;
+  planId: string;
+  questId?: string;
+  feedbackType: "shown" | "opened" | "started" | "completed" | "dismissed" | "saved";
+  metadata?: Record<string, unknown>;
+};
+
+export type RecommendationFeedbackResponse = {
+  status: "recorded";
+  feedbackId: string;
+};
+
+export type SavePlanRequest = {
+  planId: string;
+  tripContextId: string;
+  cityId: CityId;
+  planPayload: PlanBundle;
+};
+
+export type SavePlanResponse = {
+  status: "saved";
+  planId: string;
+  updatedAt: string;
+};
+
+export type SavedPlanItem = {
+  planId: string;
+  tripContextId?: string;
+  cityId: CityId;
+  planPayload: PlanBundle;
+  savedAt: string;
+  updatedAt: string;
+};
+
+export type SavedPlansResponse = {
+  items: SavedPlanItem[];
+  nextCursor?: string;
+};
+
+export type DeleteSavedPlanResponse = {
+  status: "deleted" | "not_found";
+  planId: string;
+};
+
 export type FriendRequestPayload = {
   receiverUserId: string;
 };

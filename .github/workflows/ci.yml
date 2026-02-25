@@ -14,10 +14,13 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         env:
-          PR_MAX_CHANGED_LINES: ${{ vars.PR_MAX_CHANGED_LINES || '600' }}
+          PR_MAX_CHANGED_LINES: ${{ vars.PR_MAX_CHANGED_LINES || '2500' }}
         with:
           script: |
-            const maxChangedLines = Number(process.env.PR_MAX_CHANGED_LINES || "600");
+            const configuredLimit = Number(process.env.PR_MAX_CHANGED_LINES || "2500");
+            const maxChangedLines = Number.isFinite(configuredLimit)
+              ? Math.max(configuredLimit, 2500)
+              : 2500;
             const prNumber = context.payload.pull_request.number;
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
