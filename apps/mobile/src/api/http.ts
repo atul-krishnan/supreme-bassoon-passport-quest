@@ -1,7 +1,7 @@
 import { env } from "../config/env";
 import { useSessionStore } from "../state/session";
 
-type HttpMethod = "GET" | "POST" | "PATCH";
+type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
 type RequestOptions = {
   method: HttpMethod;

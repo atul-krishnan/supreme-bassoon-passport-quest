@@ -75,7 +75,7 @@ export default function SocialScreen() {
 
   const feedQuery = useQuery({
     queryKey: ["social-feed"],
-    queryFn: () => getSocialFeed(30),
+    queryFn: () => getSocialFeed(10),
   });
 
   const incomingPendingQuery = useQuery({
@@ -143,7 +143,7 @@ export default function SocialScreen() {
 
   const feedEvents = useMemo(
     () =>
-      (feedQuery.data?.events ?? []).map((event, index) => ({
+      (feedQuery.data?.events ?? []).slice(0, 10).map((event, index) => ({
         id: event.id,
         actorName: `Explorer ${event.userId.slice(0, 4)}`,
         message: eventMessage(event.eventType, event.payload),
@@ -178,12 +178,12 @@ export default function SocialScreen() {
   return (
     <ScreenContainer padded={false}>
       <View style={styles.header}>
-        <TopBar title="Social Feed" />
+        <TopBar title="Social" />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <GlassCard style={styles.segmentCard}>
-          <Text style={styles.segmentActive}>Activity</Text>
+          <Text style={styles.segmentActive}>Recent Activity (max 10)</Text>
         </GlassCard>
 
         <GlassCard>

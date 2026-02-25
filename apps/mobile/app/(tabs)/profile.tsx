@@ -16,7 +16,7 @@ import {
   getUserSummary,
   updateMyProfile,
 } from "../../src/api/endpoints";
-import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
+import { getCityAnchor } from "../../src/config/city";
 import { env } from "../../src/config/env";
 import { clearOfflineQueue } from "../../src/db/offlineQueue";
 import { useOfflineSync } from "../../src/hooks/useOfflineSync";
@@ -54,11 +54,14 @@ export default function ProfileScreen() {
   const queryClient = useQueryClient();
   const { flushQueue } = useOfflineSync();
   const userId = useSessionStore((state) => state.userId);
+  const activeCityId = useSessionStore((state) => state.activeCityId);
+  const setCity = useSessionStore((state) => state.setCity);
   const resetSession = useSessionStore((state) => state.resetSession);
   const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
   const locationOverride = useLocationOverrideStore((state) => state.override);
   const setLocationOverride = useLocationOverrideStore((state) => state.setOverride);
   const clearLocationOverride = useLocationOverrideStore((state) => state.clearOverride);
+  const cityAnchor = getCityAnchor(activeCityId);
 
   const pendingCount = useOfflineSyncState((state) => state.pendingCount);
   const isSyncing = useOfflineSyncState((state) => state.isSyncing);
@@ -73,6 +76,7 @@ export default function ProfileScreen() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [qaStatus, setQaStatus] = useState<string | null>(null);
   const [qaBusy, setQaBusy] = useState<null | "sync" | "clear" | "session">(null);
+  const [showQaCityControls, setShowQaCityControls] = useState(false);
 
   const summaryQuery = useQuery({
     queryKey: ["user-summary"],
@@ -85,8 +89,8 @@ export default function ProfileScreen() {
   });
 
   const configQuery = useQuery({
-    queryKey: ["bootstrap-config", APP_CITY_ID],
-    queryFn: () => getBootstrapConfig(APP_CITY_ID),
+    queryKey: ["bootstrap-config", activeCityId],
+    queryFn: () => getBootstrapConfig(activeCityId),
   });
 
   useEffect(() => {
@@ -279,7 +283,7 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>Pilot City</Text>
         <GlassCard style={styles.cityCard}>
           <Text style={styles.cityLabel}>
-            Active city: {APP_CITY_ANCHOR.label} ({APP_CITY_ID.toUpperCase()})
+            Active city: {cityAnchor.label} ({activeCityId.toUpperCase()})
           </Text>
 
           {configQuery.data ? (
@@ -313,7 +317,7 @@ export default function ProfileScreen() {
               <Text style={styles.qaMeta}>Env: {env.appEnv}</Text>
               <Text style={styles.qaMeta}>Release: {env.releaseSha ?? "local-dev"}</Text>
               <Text style={styles.qaMeta}>User: {userId ?? "anonymous"}</Text>
-              <Text style={styles.qaMeta}>City: {APP_CITY_ID}</Text>
+              <Text style={styles.qaMeta}>City: {activeCityId}</Text>
               <Text style={styles.qaMeta}>
                 Experiment:{" "}
                 {experimentVariants.length > 0
@@ -324,6 +328,52 @@ export default function ProfileScreen() {
               <Text style={styles.qaMeta}>
                 Test location: {locationOverride ? "enabled" : "disabled"}
               </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowQaCityControls((value) => !value)}
+                style={styles.qaCityToggle}
+              >
+                <Text style={styles.qaCityToggleLabel}>
+                  {showQaCityControls
+                    ? "Hide city switcher"
+                    : "Show city switcher (QA only)"}
+                </Text>
+              </Pressable>
+
+              {showQaCityControls ? (
+                <View style={styles.qaCityRow}>
+                  <NeonButton
+                    label="Bangalore"
+                    variant={activeCityId === "blr" ? "primary" : "secondary"}
+                    onPress={() => {
+                      if (activeCityId === "blr") {
+                        return;
+                      }
+                      setCity("blr");
+                      trackUiEvent("profile_switch_city", {
+                        cityId: "blr",
+                        source: "qa_mode",
+                      });
+                      setQaStatus("QA city switched to Bangalore");
+                    }}
+                  />
+                  <NeonButton
+                    label="New York"
+                    variant={activeCityId === "nyc" ? "primary" : "secondary"}
+                    onPress={() => {
+                      if (activeCityId === "nyc") {
+                        return;
+                      }
+                      setCity("nyc");
+                      trackUiEvent("profile_switch_city", {
+                        cityId: "nyc",
+                        source: "qa_mode",
+                      });
+                      setQaStatus("QA city switched to New York");
+                    }}
+                  />
+                </View>
+              ) : null}
 
               <View style={styles.qaActionsRow}>
                 <NeonButton
@@ -367,13 +417,13 @@ export default function ProfileScreen() {
                       return;
                     }
                     setLocationOverride({
-                      lat: APP_CITY_ANCHOR.lat,
-                      lng: APP_CITY_ANCHOR.lng,
+                      lat: cityAnchor.lat,
+                      lng: cityAnchor.lng,
                       accuracyM: 8,
                       source: "app_test_location",
                     });
                     trackUiEvent("map_use_test_location", {
-                      cityId: APP_CITY_ID,
+                      cityId: activeCityId,
                       source: "qa_mode",
                     });
                     setQaStatus("Test location enabled");
@@ -530,6 +580,26 @@ const styles = StyleSheet.create({
   },
   qaMeta: {
     color: theme.colors.textSecondary,
+  },
+  qaCityToggle: {
+    marginTop: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    alignSelf: "flex-start",
+  },
+  qaCityToggleLabel: {
+    color: theme.colors.accentCyan,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
+  qaCityRow: {
+    marginTop: theme.spacing.xs,
+    flexDirection: "row",
+    gap: theme.spacing.xs,
   },
   qaActionsRow: {
     marginTop: theme.spacing.xs,
