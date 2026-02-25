@@ -13,9 +13,30 @@ const ALLOWED_FRIEND_REQUEST_STATUSES = new Set([
   "rejected",
   "cancelled",
 ]);
+const ALLOWED_TRIP_CONTEXT_TYPES = new Set([
+  "solo",
+  "couple",
+  "family",
+  "friends",
+]);
+const ALLOWED_PLAN_BUDGETS = new Set(["low", "medium", "high"]);
+const ALLOWED_PLAN_PACES = new Set(["relaxed", "balanced", "active"]);
+const ALLOWED_PLAN_FEEDBACK_TYPES = new Set([
+  "shown",
+  "opened",
+  "started",
+  "completed",
+  "dismissed",
+  "saved",
+]);
+const ALLOWED_TRIP_END_STATUSES = new Set(["completed", "cancelled"]);
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,32}$/;
 const RELEASE_SHA = (Deno.env.get("RELEASE_SHA") ?? "dev-local").trim() || "dev-local";
 const APP_ENV = (Deno.env.get("APP_ENV") ?? "local").trim() || "local";
+const CITY_ANCHORS: Record<"blr" | "nyc", { lat: number; lng: number }> = {
+  blr: { lat: 12.9763, lng: 77.5929 },
+  nyc: { lat: 40.7536, lng: -73.9832 },
+};
 
 function withMetaHeaders(response: Response, requestId: string): Response {
   const headers = new Headers(response.headers);
@@ -104,6 +125,105 @@ function parseFriendRequestStatus(searchParams: URLSearchParams) {
     throw new Error("status must be one of: pending, accepted, rejected, cancelled");
   }
   return status;
+}
+
+function parseCityIdFromValue(value: unknown): "blr" | "nyc" | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!ALLOWED_CITY_IDS.has(normalized)) {
+    return null;
+  }
+  return normalized as "blr" | "nyc";
+}
+
+function clampInt(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+function takeFirstSentence(text: string) {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return "";
+  }
+  const split = trimmed.split(/[.!?]/).map((part) => part.trim()).filter(Boolean);
+  if (split.length === 0) {
+    return trimmed.slice(0, 140);
+  }
+  return split[0].slice(0, 140);
+}
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const radius = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+
+  return 2 * radius * Math.asin(Math.sqrt(a));
+}
+
+function parseQuestGeo(
+  geofenceJson: Record<string, unknown> | null | undefined,
+): { lat: number; lng: number } | null {
+  if (!geofenceJson || typeof geofenceJson !== "object") {
+    return null;
+  }
+  const lat = Number(geofenceJson.lat);
+  const lng = Number(geofenceJson.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+  return { lat, lng };
+}
+
+function budgetRank(value: "low" | "medium" | "high") {
+  if (value === "low") {
+    return 1;
+  }
+  if (value === "medium") {
+    return 2;
+  }
+  return 3;
+}
+
+function isBudgetCompatible(
+  preferred: "low" | "medium" | "high",
+  candidate: "low" | "medium" | "high",
+) {
+  if (preferred === "high") {
+    return true;
+  }
+  if (preferred === "medium") {
+    return candidate !== "high";
+  }
+  return candidate === "low";
+}
+
+function normalizeWhyRecommended(reasons: string[]) {
+  const unique = Array.from(
+    new Set(
+      reasons
+        .map((reason) => reason.trim())
+        .filter((reason) => reason.length > 0),
+    ),
+  );
+  if (unique.length === 0) {
+    return [
+      "Curated for your trip context",
+      "Quick-to-start option with minimal planning effort",
+    ];
+  }
+  if (unique.length === 1) {
+    return [
+      unique[0],
+      "Quick-to-start option with minimal planning effort",
+    ];
+  }
+  return unique.slice(0, 4);
 }
 
 function sanitizeUsername(value: unknown): string | null {
@@ -268,6 +388,766 @@ async function handleComplete(
 
   if (error) {
     return errorResponse(500, error.message);
+  }
+
+  return jsonResponse(data);
+}
+
+type TripContextRow = {
+  id: string;
+  user_id: string;
+  city_id: "blr" | "nyc";
+  context_type: "solo" | "couple" | "family" | "friends";
+  time_budget_min: number;
+  budget: "low" | "medium" | "high";
+  pace: "relaxed" | "balanced" | "active";
+  vibe_tags_json: unknown;
+};
+
+type QuestTagRow = {
+  family_safe?: boolean;
+  date_friendly?: boolean;
+  kid_friendly?: boolean;
+  wheelchair_accessible?: boolean;
+  low_crowd?: boolean;
+  indoor_option?: boolean;
+  budget_band?: "low" | "medium" | "high";
+  recommended_duration_min?: number;
+  practical_details_json?: unknown;
+  hero_image_url?: string | null;
+};
+
+type NormalizedQuestTags = {
+  family_safe: boolean;
+  date_friendly: boolean;
+  kid_friendly: boolean;
+  wheelchair_accessible: boolean;
+  low_crowd: boolean;
+  indoor_option: boolean;
+  budget_band: "low" | "medium" | "high";
+  recommended_duration_min: number;
+  practical_details_json: string[];
+  hero_image_url: string | null;
+};
+
+type QuestRowWithTags = {
+  id: string;
+  city_id: string;
+  title: string;
+  description: string;
+  category: string;
+  geofence_json: Record<string, unknown>;
+  xp_reward: number;
+  badge_key: string | null;
+  active_from: string;
+  active_to: string | null;
+  quest_experience_tags?: QuestTagRow | QuestTagRow[] | null;
+};
+
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => item.length > 0);
+  }
+  return [];
+}
+
+function normalizeQuestTags(value: unknown): NormalizedQuestTags {
+  const source = Array.isArray(value)
+    ? (value[0] as QuestTagRow | undefined)
+    : (value as QuestTagRow | undefined);
+
+  return {
+    family_safe: Boolean(source?.family_safe),
+    date_friendly: Boolean(source?.date_friendly),
+    kid_friendly: Boolean(source?.kid_friendly),
+    wheelchair_accessible: Boolean(source?.wheelchair_accessible),
+    low_crowd: Boolean(source?.low_crowd),
+    indoor_option: Boolean(source?.indoor_option),
+    budget_band:
+      source?.budget_band === "low" ||
+      source?.budget_band === "medium" ||
+      source?.budget_band === "high"
+        ? source.budget_band
+        : "medium",
+    recommended_duration_min:
+      typeof source?.recommended_duration_min === "number" &&
+      Number.isFinite(source.recommended_duration_min)
+        ? clampInt(source.recommended_duration_min, 30, 480)
+        : 90,
+    practical_details_json: normalizeStringArray(source?.practical_details_json),
+    hero_image_url: typeof source?.hero_image_url === "string"
+      ? source.hero_image_url
+      : null,
+  };
+}
+
+function countVibeMatches(quest: QuestRowWithTags, vibeTags: string[]) {
+  const haystack = `${quest.title} ${quest.description}`.toLowerCase();
+  let matches = 0;
+  for (const vibe of vibeTags) {
+    if (vibe.length > 0 && haystack.includes(vibe.toLowerCase())) {
+      matches += 1;
+    }
+  }
+  return matches;
+}
+
+function scoreRecommendationCandidate(
+  quest: QuestRowWithTags,
+  tags: NormalizedQuestTags,
+  context: TripContextRow,
+  vibeMatchCount: number,
+  distanceFromCityAnchorM: number,
+) {
+  let score = Math.max(1, Math.floor(quest.xp_reward / 20));
+
+  if (context.context_type === "couple" && tags.date_friendly) {
+    score += 22;
+  }
+  if (context.context_type === "family" && tags.family_safe) {
+    score += 20;
+  }
+  if (context.context_type === "solo" && tags.low_crowd) {
+    score += 12;
+  }
+  if (context.context_type === "friends" && !tags.low_crowd) {
+    score += 8;
+  }
+
+  if (context.budget === tags.budget_band) {
+    score += 14;
+  } else if (context.budget === "medium") {
+    score += 6;
+  }
+
+  if (context.pace === "relaxed" && tags.low_crowd) {
+    score += 8;
+  }
+  if (context.pace === "active" && (quest.category === "landmark" || quest.category === "culture")) {
+    score += 7;
+  }
+  if (context.pace === "balanced") {
+    score += 4;
+  }
+
+  score += vibeMatchCount * 4;
+  score += Math.max(0, 14 - Math.floor(distanceFromCityAnchorM / 2000));
+  return score;
+}
+
+function buildWhyRecommended(
+  context: TripContextRow,
+  quest: QuestRowWithTags,
+  tags: NormalizedQuestTags,
+  vibeMatchCount: number,
+) {
+  const reasons: string[] = [];
+
+  if (context.context_type === "couple" && tags.date_friendly) {
+    reasons.push("Matches couple-friendly vibe");
+  } else if (context.context_type === "family" && tags.family_safe) {
+    reasons.push("Family-safe and kid-friendly option");
+  } else if (context.context_type === "solo" && tags.low_crowd) {
+    reasons.push("Low-crowd option for solo time");
+  } else if (context.context_type === "friends") {
+    reasons.push("Good fit for a friends outing");
+  }
+
+  reasons.push(`Fits a ${context.budget} budget plan`);
+
+  if (context.pace === "relaxed" && tags.low_crowd) {
+    reasons.push("Relaxed pace with lower crowd intensity");
+  } else if (context.pace === "active") {
+    reasons.push("Active pace with engaging movement");
+  } else {
+    reasons.push("Balanced plan for a flexible outing");
+  }
+
+  if (vibeMatchCount > 0) {
+    reasons.push("Matches your selected vibe tags");
+  } else if (quest.category === "food") {
+    reasons.push("Strong local food recommendation");
+  } else if (quest.category === "culture") {
+    reasons.push("High-quality local culture experience");
+  } else {
+    reasons.push("Popular Bangalore activity for this context");
+  }
+
+  return reasons.slice(0, 4);
+}
+
+function makePlanTitle(contextType: TripContextRow["context_type"], questTitle: string) {
+  if (contextType === "couple") {
+    return `Date Plan: ${questTitle}`;
+  }
+  if (contextType === "family") {
+    return `Family Plan: ${questTitle}`;
+  }
+  if (contextType === "friends") {
+    return `Group Plan: ${questTitle}`;
+  }
+  return `Solo Plan: ${questTitle}`;
+}
+
+async function handleTripContextStart(
+  req: Request,
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  const body = await readJsonBody(req);
+  const cityId = parseCityIdFromValue(body.cityId);
+  const contextType =
+    typeof body.contextType === "string" ? body.contextType.toLowerCase() : "";
+  const timeBudgetMin = Number(body.timeBudgetMin);
+  const budget =
+    typeof body.budget === "string" ? body.budget.toLowerCase() : "medium";
+  const pace = typeof body.pace === "string" ? body.pace.toLowerCase() : "balanced";
+  const vibeTags = normalizeStringArray(body.vibeTags);
+  const constraints =
+    body.constraints && typeof body.constraints === "object"
+      ? (body.constraints as Record<string, unknown>)
+      : {};
+
+  if (!cityId) {
+    return errorResponse(400, "cityId must be one of: blr, nyc");
+  }
+  if (!ALLOWED_TRIP_CONTEXT_TYPES.has(contextType)) {
+    return errorResponse(400, "contextType must be one of: solo, couple, family, friends");
+  }
+  if (!Number.isFinite(timeBudgetMin) || timeBudgetMin < 30 || timeBudgetMin > 720) {
+    return errorResponse(400, "timeBudgetMin must be between 30 and 720");
+  }
+  if (!ALLOWED_PLAN_BUDGETS.has(budget)) {
+    return errorResponse(400, "budget must be one of: low, medium, high");
+  }
+  if (!ALLOWED_PLAN_PACES.has(pace)) {
+    return errorResponse(400, "pace must be one of: relaxed, balanced, active");
+  }
+
+  const { data, error } = await db.rpc("start_trip_context", {
+    p_user_id: userId,
+    p_city_id: cityId,
+    p_context_type: contextType,
+    p_time_budget_min: clampInt(timeBudgetMin, 30, 720),
+    p_budget: budget,
+    p_pace: pace,
+    p_vibe_tags: vibeTags,
+    p_constraints: constraints,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleTripContextUpdate(
+  req: Request,
+  db: DbClient,
+  userId: string,
+  tripContextId: string,
+): Promise<Response> {
+  const body = await readJsonBody(req);
+  const contextType =
+    typeof body.contextType === "string" ? body.contextType.toLowerCase() : null;
+  const budget = typeof body.budget === "string" ? body.budget.toLowerCase() : null;
+  const pace = typeof body.pace === "string" ? body.pace.toLowerCase() : null;
+  const timeBudgetMin =
+    body.timeBudgetMin === undefined ? null : Number(body.timeBudgetMin);
+  const vibeTags =
+    body.vibeTags === undefined ? null : normalizeStringArray(body.vibeTags);
+  const constraints =
+    body.constraints === undefined
+      ? null
+      : body.constraints && typeof body.constraints === "object"
+        ? (body.constraints as Record<string, unknown>)
+        : null;
+
+  if (contextType !== null && !ALLOWED_TRIP_CONTEXT_TYPES.has(contextType)) {
+    return errorResponse(400, "contextType must be one of: solo, couple, family, friends");
+  }
+  if (budget !== null && !ALLOWED_PLAN_BUDGETS.has(budget)) {
+    return errorResponse(400, "budget must be one of: low, medium, high");
+  }
+  if (pace !== null && !ALLOWED_PLAN_PACES.has(pace)) {
+    return errorResponse(400, "pace must be one of: relaxed, balanced, active");
+  }
+  if (
+    timeBudgetMin !== null &&
+    (!Number.isFinite(timeBudgetMin) || timeBudgetMin < 30 || timeBudgetMin > 720)
+  ) {
+    return errorResponse(400, "timeBudgetMin must be between 30 and 720");
+  }
+
+  const { data, error } = await db.rpc("update_trip_context", {
+    p_user_id: userId,
+    p_trip_context_id: tripContextId,
+    p_context_type: contextType,
+    p_time_budget_min: timeBudgetMin !== null ? clampInt(timeBudgetMin, 30, 720) : null,
+    p_budget: budget,
+    p_pace: pace,
+    p_vibe_tags: vibeTags,
+    p_constraints: constraints,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+  if (data && typeof data === "object" && (data as Record<string, unknown>).status === "not_found") {
+    return errorResponse(404, "trip_context_not_found");
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleTripContextEnd(
+  req: Request,
+  db: DbClient,
+  userId: string,
+  tripContextId: string,
+): Promise<Response> {
+  const body = await readJsonBody(req);
+  const status =
+    typeof body.status === "string" ? body.status.toLowerCase() : "completed";
+
+  if (!ALLOWED_TRIP_END_STATUSES.has(status)) {
+    return errorResponse(400, "status must be one of: completed, cancelled");
+  }
+
+  const { data, error } = await db.rpc("end_trip_context", {
+    p_user_id: userId,
+    p_trip_context_id: tripContextId,
+    p_status: status,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+  if (data && typeof data === "object" && (data as Record<string, unknown>).status === "not_found") {
+    return errorResponse(404, "trip_context_not_found");
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleRecommendedPlans(
+  db: DbClient,
+  userId: string,
+  url: URL,
+): Promise<Response> {
+  const cityId = parseCityId(url.searchParams);
+  const tripContextId = url.searchParams.get("tripContextId");
+  const limitRaw = Number(url.searchParams.get("limit") ?? "3");
+  const limit = clampInt(Number.isFinite(limitRaw) ? limitRaw : 3, 1, 3);
+
+  if (!tripContextId || tripContextId.trim().length === 0) {
+    return errorResponse(400, "tripContextId is required");
+  }
+
+  const contextResult = await db
+    .from("trip_context_sessions")
+    .select("id, user_id, city_id, context_type, time_budget_min, budget, pace, vibe_tags_json")
+    .eq("id", tripContextId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (contextResult.error) {
+    return errorResponse(500, contextResult.error.message);
+  }
+
+  const context = (contextResult.data ?? null) as TripContextRow | null;
+  if (!context) {
+    return errorResponse(404, "trip_context_not_found");
+  }
+  if (context.city_id !== cityId) {
+    return errorResponse(400, "tripContextId city does not match cityId");
+  }
+
+  const questResult = await db
+    .from("quests")
+    .select(`
+      id,
+      city_id,
+      title,
+      description,
+      category,
+      geofence_json,
+      xp_reward,
+      badge_key,
+      active_from,
+      active_to,
+      quest_experience_tags (
+        family_safe,
+        date_friendly,
+        kid_friendly,
+        wheelchair_accessible,
+        low_crowd,
+        indoor_option,
+        budget_band,
+        recommended_duration_min,
+        practical_details_json,
+        hero_image_url
+      )
+    `)
+    .eq("city_id", cityId)
+    .eq("is_active", true)
+    .order("active_from", { ascending: false })
+    .limit(100);
+
+  if (questResult.error) {
+    return errorResponse(500, questResult.error.message);
+  }
+
+  const cityAnchor = CITY_ANCHORS[cityId];
+  const now = Date.now();
+  const vibeTags = normalizeStringArray(context.vibe_tags_json);
+  const allActiveQuests = (questResult.data ?? [])
+    .map((row) => row as unknown as QuestRowWithTags)
+    .filter((quest) => {
+      const startsAt = new Date(quest.active_from).getTime();
+      const endsAt = quest.active_to ? new Date(quest.active_to).getTime() : null;
+      if (Number.isFinite(startsAt) && startsAt > now) {
+        return false;
+      }
+      if (endsAt !== null && Number.isFinite(endsAt) && endsAt < now) {
+        return false;
+      }
+      return true;
+    })
+    .map((quest) => {
+      const tags = normalizeQuestTags(quest.quest_experience_tags);
+      const vibeMatchCount = countVibeMatches(quest, vibeTags);
+      const geo = parseQuestGeo(quest.geofence_json);
+      const distanceFromCityAnchorM = geo
+        ? haversineMeters(cityAnchor.lat, cityAnchor.lng, geo.lat, geo.lng)
+        : 6000;
+      const score = scoreRecommendationCandidate(
+        quest,
+        tags,
+        context,
+        vibeMatchCount,
+        distanceFromCityAnchorM,
+      );
+      return {
+        quest,
+        tags,
+        vibeMatchCount,
+        distanceFromCityAnchorM,
+        recommendedDurationMin: clampInt(tags.recommended_duration_min, 30, 240),
+        score,
+      };
+    });
+
+  const candidates = (allActiveQuests.length > 0 ? allActiveQuests : [])
+    .filter((candidate) => {
+      const budgetOk = isBudgetCompatible(context.budget, candidate.tags.budget_band);
+      const timeOk = candidate.recommendedDurationMin <= context.time_budget_min + 45;
+      return budgetOk && timeOk;
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const rankedCandidates = (candidates.length > 0 ? candidates : allActiveQuests).sort(
+    (a, b) => b.score - a.score,
+  );
+
+  const plans: Array<Record<string, unknown>> = [];
+  const usedSeedQuestIds = new Set<string>();
+  const usedSeedCategories = new Set<string>();
+
+  const buildPlanFromSeed = (
+    seed: (typeof rankedCandidates)[number],
+    index: number,
+  ) => {
+    const selectedStops = [seed];
+    let totalDuration = seed.recommendedDurationMin;
+    const usedCategories = new Set<string>([seed.quest.category]);
+
+    for (const candidate of rankedCandidates) {
+      if (selectedStops.length >= 3) {
+        break;
+      }
+      if (candidate.quest.id === seed.quest.id) {
+        continue;
+      }
+
+      const isDuplicateCategory = usedCategories.has(candidate.quest.category);
+      if (isDuplicateCategory && selectedStops.length >= 2) {
+        continue;
+      }
+
+      const proposedDuration = totalDuration + candidate.recommendedDurationMin;
+      if (proposedDuration > context.time_budget_min + 45) {
+        continue;
+      }
+
+      selectedStops.push(candidate);
+      totalDuration = proposedDuration;
+      usedCategories.add(candidate.quest.category);
+    }
+
+    const spendBandRank = selectedStops.reduce(
+      (maxRank, stop) => Math.max(maxRank, budgetRank(stop.tags.budget_band)),
+      1,
+    );
+    const estimatedSpendBand = spendBandRank <= 1
+      ? "low"
+      : spendBandRank === 2
+        ? "medium"
+        : "high";
+
+    const whyRecommended = normalizeWhyRecommended([
+      ...buildWhyRecommended(
+        context,
+        seed.quest,
+        seed.tags,
+        seed.vibeMatchCount,
+      ),
+      ...(selectedStops.length > 1
+        ? ["Includes varied stops in one ready-made route"]
+        : []),
+      ...(seed.distanceFromCityAnchorM <= 6000
+        ? ["Stops are relatively close for easier travel"]
+        : []),
+    ]);
+
+    return {
+      planId: `${context.id}:${seed.quest.id}:${index + 1}`,
+      title: makePlanTitle(context.context_type, seed.quest.title),
+      summary:
+        selectedStops.length > 1
+          ? `${takeFirstSentence(seed.quest.description)} + ${selectedStops.length - 1} more stop(s).`
+          : takeFirstSentence(seed.quest.description) || seed.quest.description,
+      estimatedDurationMin: clampInt(totalDuration, 30, 360),
+      estimatedSpendBand,
+      whyRecommended,
+      stops: selectedStops.map((candidate, stopIndex) => {
+        const practicalDetails =
+          candidate.tags.practical_details_json.length > 0
+            ? candidate.tags.practical_details_json.slice(0, 3)
+            : [
+                `Target duration ~${candidate.recommendedDurationMin} minutes`,
+                `Budget fit: ${candidate.tags.budget_band}`,
+              ];
+
+        return {
+          questId: candidate.quest.id,
+          title: candidate.quest.title,
+          order: stopIndex + 1,
+          visitDurationMin: candidate.recommendedDurationMin,
+          storySnippet:
+            takeFirstSentence(candidate.quest.description) ||
+            candidate.quest.description,
+          practicalDetails,
+          heroImageUrl: candidate.tags.hero_image_url ?? undefined,
+        };
+      }),
+    };
+  };
+
+  for (const candidate of rankedCandidates) {
+    if (plans.length >= limit) {
+      break;
+    }
+    if (usedSeedQuestIds.has(candidate.quest.id)) {
+      continue;
+    }
+    if (
+      usedSeedCategories.has(candidate.quest.category) &&
+      rankedCandidates.length > limit
+    ) {
+      continue;
+    }
+    plans.push(buildPlanFromSeed(candidate, plans.length));
+    usedSeedQuestIds.add(candidate.quest.id);
+    usedSeedCategories.add(candidate.quest.category);
+  }
+
+  if (plans.length < limit) {
+    for (const candidate of rankedCandidates) {
+      if (plans.length >= limit) {
+        break;
+      }
+      if (usedSeedQuestIds.has(candidate.quest.id)) {
+        continue;
+      }
+      plans.push(buildPlanFromSeed(candidate, plans.length));
+      usedSeedQuestIds.add(candidate.quest.id);
+    }
+  }
+
+  if (plans.length === 0 && rankedCandidates.length > 0) {
+    const fallback = rankedCandidates[0];
+    plans.push({
+      planId: `${context.id}:${fallback.quest.id}:fallback`,
+      title: makePlanTitle(context.context_type, fallback.quest.title),
+      summary: takeFirstSentence(fallback.quest.description) || fallback.quest.description,
+      estimatedDurationMin: fallback.recommendedDurationMin,
+      estimatedSpendBand: fallback.tags.budget_band,
+      whyRecommended: normalizeWhyRecommended([
+        "Limited matching options right now",
+        "Showing the best available single-stop plan",
+      ]),
+      stops: [
+        {
+          questId: fallback.quest.id,
+          title: fallback.quest.title,
+          order: 1,
+          visitDurationMin: fallback.recommendedDurationMin,
+          storySnippet:
+            takeFirstSentence(fallback.quest.description) || fallback.quest.description,
+          practicalDetails:
+            fallback.tags.practical_details_json.length > 0
+              ? fallback.tags.practical_details_json.slice(0, 3)
+              : ["Best available option for the selected context"],
+          heroImageUrl: fallback.tags.hero_image_url ?? undefined,
+        },
+      ],
+    });
+  }
+
+  return jsonResponse({
+    tripContextId: context.id,
+    cityId,
+    plans,
+  });
+}
+
+async function handleRecommendationFeedback(
+  req: Request,
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  const body = await readJsonBody(req);
+  const tripContextId =
+    typeof body.tripContextId === "string" ? body.tripContextId : "";
+  const planId = typeof body.planId === "string" ? body.planId : "";
+  const questId = typeof body.questId === "string" ? body.questId : null;
+  const feedbackType =
+    typeof body.feedbackType === "string" ? body.feedbackType.toLowerCase() : "";
+  const metadata =
+    body.metadata && typeof body.metadata === "object"
+      ? (body.metadata as Record<string, unknown>)
+      : {};
+
+  if (tripContextId.length === 0 || planId.length === 0) {
+    return errorResponse(400, "tripContextId and planId are required");
+  }
+  if (!ALLOWED_PLAN_FEEDBACK_TYPES.has(feedbackType)) {
+    return errorResponse(400, "feedbackType is invalid");
+  }
+
+  const { data, error } = await db.rpc("record_recommendation_feedback", {
+    p_user_id: userId,
+    p_trip_context_id: tripContextId,
+    p_plan_id: planId,
+    p_quest_id: questId,
+    p_feedback_type: feedbackType,
+    p_metadata: metadata,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleSavePlan(
+  req: Request,
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  const body = await readJsonBody(req);
+  const planId = typeof body.planId === "string" ? body.planId.trim() : "";
+  const tripContextId =
+    typeof body.tripContextId === "string" ? body.tripContextId.trim() : "";
+  const cityId = parseCityIdFromValue(body.cityId);
+  const planPayload =
+    body.planPayload && typeof body.planPayload === "object"
+      ? (body.planPayload as Record<string, unknown>)
+      : null;
+
+  if (!planId || !tripContextId || !cityId || !planPayload) {
+    return errorResponse(400, "planId, tripContextId, cityId and planPayload are required");
+  }
+
+  const { data, error } = await db.rpc("save_plan", {
+    p_user_id: userId,
+    p_plan_id: planId,
+    p_trip_context_id: tripContextId,
+    p_city_id: cityId,
+    p_plan_payload: planPayload,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleGetSavedPlans(
+  db: DbClient,
+  userId: string,
+  url: URL,
+): Promise<Response> {
+  const limitRaw = Number(url.searchParams.get("limit") ?? "20");
+  const limit = clampInt(Number.isFinite(limitRaw) ? limitRaw : 20, 1, 100);
+  const cursorParam = url.searchParams.get("cursor");
+  const cursor = cursorParam && cursorParam.length > 0 ? cursorParam : null;
+
+  const { data, error } = await db.rpc("get_saved_plans", {
+    p_user_id: userId,
+    p_limit: limit,
+    p_cursor: cursor,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  const items = (data ?? []).map((row: Record<string, unknown>) => ({
+    planId: String(row.plan_id),
+    tripContextId:
+      typeof row.trip_context_id === "string" ? String(row.trip_context_id) : undefined,
+    cityId: String(row.city_id),
+    planPayload: (row.plan_payload ?? {}) as Record<string, unknown>,
+    savedAt: String(row.saved_at),
+    updatedAt: String(row.updated_at),
+  }));
+
+  const nextCursor = items.length === limit ? items.at(-1)?.updatedAt : undefined;
+
+  return jsonResponse({
+    items,
+    nextCursor,
+  });
+}
+
+async function handleDeleteSavedPlan(
+  db: DbClient,
+  userId: string,
+  planId: string,
+): Promise<Response> {
+  const normalizedPlanId = decodeURIComponent(planId).trim();
+  if (!normalizedPlanId) {
+    return errorResponse(400, "planId is required");
+  }
+
+  const { data, error } = await db.rpc("delete_saved_plan", {
+    p_user_id: userId,
+    p_plan_id: normalizedPlanId,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  if (data && typeof data === "object" && (data as Record<string, unknown>).status === "not_found") {
+    return errorResponse(404, "saved_plan_not_found");
   }
 
   return jsonResponse(data);
@@ -814,6 +1694,57 @@ serve(async (req: Request) => {
 
     if (req.method === "POST" && route === "/quests/complete") {
       return finalize(await handleComplete(req, db, user.id), user.id);
+    }
+
+    if (req.method === "POST" && route === "/trips/context/start") {
+      return finalize(await handleTripContextStart(req, db, user.id), user.id);
+    }
+
+    const tripContextPatchMatch = route.match(/^\/trips\/context\/([^/]+)$/);
+    if (req.method === "PATCH" && tripContextPatchMatch) {
+      return finalize(
+        await handleTripContextUpdate(req, db, user.id, tripContextPatchMatch[1]),
+        user.id,
+      );
+    }
+
+    const tripContextEndMatch = route.match(/^\/trips\/context\/([^/]+)\/end$/);
+    if (req.method === "POST" && tripContextEndMatch) {
+      return finalize(
+        await handleTripContextEnd(req, db, user.id, tripContextEndMatch[1]),
+        user.id,
+      );
+    }
+
+    if (req.method === "GET" && route === "/plans/recommended") {
+      return finalize(await handleRecommendedPlans(db, user.id, url), user.id);
+    }
+
+    if (req.method === "GET" && route === "/quests/recommended") {
+      return finalize(await handleRecommendedPlans(db, user.id, url), user.id);
+    }
+
+    if (req.method === "POST" && route === "/recommendations/feedback") {
+      return finalize(
+        await handleRecommendationFeedback(req, db, user.id),
+        user.id,
+      );
+    }
+
+    if (req.method === "POST" && route === "/plans/save") {
+      return finalize(await handleSavePlan(req, db, user.id), user.id);
+    }
+
+    if (req.method === "GET" && route === "/plans/saved") {
+      return finalize(await handleGetSavedPlans(db, user.id, url), user.id);
+    }
+
+    const planDeleteMatch = route.match(/^\/plans\/saved\/([^/]+)$/);
+    if (req.method === "DELETE" && planDeleteMatch) {
+      return finalize(
+        await handleDeleteSavedPlan(db, user.id, planDeleteMatch[1]),
+        user.id,
+      );
     }
 
     if (req.method === "GET" && route === "/social/feed") {
