@@ -3,13 +3,23 @@ import type {
   CityId,
   CompleteQuestRequest,
   CompleteQuestResponse,
+  DeleteSavedPlanResponse,
   HealthResponse,
   IncomingFriendRequestsResponse,
   NearbyQuestResponse,
+  RecommendationFeedbackRequest,
+  RecommendationFeedbackResponse,
+  RecommendedPlansResponse,
   ProfileCompareResponse,
   RegisterPushTokenRequest,
   RegisterPushTokenResponse,
+  SavePlanRequest,
+  SavePlanResponse,
+  SavedPlansResponse,
   SocialFeedResponse,
+  TripContextResponse,
+  TripContextStartRequest,
+  TripContextUpdateRequest,
   UpdateProfileRequest,
   UserBadgesResponse,
   UserSummaryResponse,
@@ -127,5 +137,79 @@ export function getHealth() {
   return apiRequest<HealthResponse>({
     method: "GET",
     path: "/health",
+  });
+}
+
+export function startTripContext(payload: TripContextStartRequest) {
+  return apiRequest<TripContextResponse>({
+    method: "POST",
+    path: "/trips/context/start",
+    body: payload,
+  });
+}
+
+export function updateTripContext(
+  tripContextId: string,
+  payload: TripContextUpdateRequest,
+) {
+  return apiRequest<TripContextResponse>({
+    method: "PATCH",
+    path: `/trips/context/${tripContextId}`,
+    body: payload,
+  });
+}
+
+export function endTripContext(tripContextId: string, status: "completed" | "cancelled" = "completed") {
+  return apiRequest<TripContextResponse>({
+    method: "POST",
+    path: `/trips/context/${tripContextId}/end`,
+    body: { status },
+  });
+}
+
+export function getRecommendedPlans(params: {
+  cityId: CityId;
+  tripContextId: string;
+  limit?: number;
+}) {
+  return apiRequest<RecommendedPlansResponse>({
+    method: "GET",
+    path: "/plans/recommended",
+    query: {
+      cityId: params.cityId,
+      tripContextId: params.tripContextId,
+      limit: params.limit ?? 3,
+    },
+  });
+}
+
+export function submitRecommendationFeedback(payload: RecommendationFeedbackRequest) {
+  return apiRequest<RecommendationFeedbackResponse>({
+    method: "POST",
+    path: "/recommendations/feedback",
+    body: payload,
+  });
+}
+
+export function savePlan(payload: SavePlanRequest) {
+  return apiRequest<SavePlanResponse>({
+    method: "POST",
+    path: "/plans/save",
+    body: payload,
+  });
+}
+
+export function getSavedPlans(limit = 20, cursor?: string) {
+  return apiRequest<SavedPlansResponse>({
+    method: "GET",
+    path: "/plans/saved",
+    query: { limit, cursor },
+  });
+}
+
+export function deleteSavedPlan(planId: string) {
+  return apiRequest<DeleteSavedPlanResponse>({
+    method: "DELETE",
+    path: `/plans/saved/${planId}`,
   });
 }

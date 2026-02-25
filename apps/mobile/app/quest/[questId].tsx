@@ -3,16 +3,18 @@ import { router, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import { useMemo } from "react";
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import type { QuestCategory } from "@passport-quest/shared";
+import type { PlanBundle, QuestCategory } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
-import { completeQuest } from "../../src/api/endpoints";
+import { completeQuest, savePlan, submitRecommendationFeedback } from "../../src/api/endpoints";
 import { enqueueQuestCompletion } from "../../src/db/offlineQueue";
 import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { theme } from "../../src/theme";
@@ -20,6 +22,7 @@ import {
   GlassCard,
   InlineError,
   NeonButton,
+  ReasonList,
   ScreenContainer,
   TopBar,
 } from "../../src/ui";
@@ -34,6 +37,10 @@ type DetailParams = {
   xpReward?: string;
   badgeKey?: string;
   source?: string;
+  planId?: string;
+  tripContextId?: string;
+  why?: string;
+  planPayload?: string;
 };
 
 function normalizeCategory(value: string | undefined): QuestCategory {
@@ -41,6 +48,32 @@ function normalizeCategory(value: string | undefined): QuestCategory {
     return value;
   }
   return "landmark";
+}
+
+function normalizeCityId(value: string | undefined): "blr" | "nyc" | null {
+  if (value === "blr" || value === "nyc") {
+    return value;
+  }
+  return null;
+}
+
+function isPlanBundle(value: unknown): value is PlanBundle {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<PlanBundle>;
+  return (
+    typeof candidate.planId === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.summary === "string" &&
+    typeof candidate.estimatedDurationMin === "number" &&
+    (candidate.estimatedSpendBand === "low" ||
+      candidate.estimatedSpendBand === "medium" ||
+      candidate.estimatedSpendBand === "high") &&
+    Array.isArray(candidate.whyRecommended) &&
+    Array.isArray(candidate.stops)
+  );
 }
 
 export default function QuestDetailScreen() {
@@ -57,6 +90,9 @@ export default function QuestDetailScreen() {
   const category = normalizeCategory(
     typeof params.category === "string" ? params.category : undefined,
   );
+  const cityId = normalizeCityId(
+    typeof params.cityId === "string" ? params.cityId : undefined,
+  );
   const xpReward = useMemo(() => {
     const raw =
       typeof params.xpReward === "string" ? Number(params.xpReward) : 100;
@@ -67,6 +103,77 @@ export default function QuestDetailScreen() {
       ? params.badgeKey
       : null;
   const source = typeof params.source === "string" ? params.source : "unknown";
+  const planId = typeof params.planId === "string" ? params.planId : null;
+  const tripContextId =
+    typeof params.tripContextId === "string" ? params.tripContextId : null;
+
+  const whyRecommended = useMemo(() => {
+    if (typeof params.why !== "string") {
+      return [];
+    }
+    return params.why
+      .split("||")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }, [params.why]);
+
+  const planPayload = useMemo(() => {
+    if (typeof params.planPayload !== "string" || params.planPayload.length === 0) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(params.planPayload);
+      if (!parsed || typeof parsed !== "object") {
+        return null;
+      }
+      return isPlanBundle(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }, [params.planPayload]);
+
+  const savePlanMutation = useMutation({
+    mutationFn: async () => {
+      if (!planId || !tripContextId || !cityId || !planPayload) {
+        throw new Error("Missing plan details for save.");
+      }
+
+      await savePlan({
+        planId,
+        tripContextId,
+        cityId,
+        planPayload,
+      });
+
+      await submitRecommendationFeedback({
+        tripContextId,
+        planId,
+        questId: questId || undefined,
+        feedbackType: "saved",
+        metadata: { surface: "quest_detail" },
+      });
+      trackUiEvent("recommendation_feedback_submitted", {
+        tripContextId,
+        planId,
+        questId: questId || null,
+        feedbackType: "saved",
+        surface: "quest_detail",
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["saved-plans-preview"] }),
+        queryClient.invalidateQueries({ queryKey: ["saved-plans-count"] }),
+      ]);
+      Alert.alert("Saved", "Plan saved to your profile.");
+    },
+    onError: (error) => {
+      Alert.alert(
+        "Could not save",
+        error instanceof Error ? error.message : "Try again.",
+      );
+    },
+  });
 
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -128,18 +235,35 @@ export default function QuestDetailScreen() {
           latencyMs: Date.now() - startedAt,
         });
         trackUiEvent("quest_claim_reward", { questId, status: result.status });
+
         if (
           source === "recommended" &&
           result.status === "accepted" &&
           result.reason !== "queued_offline"
         ) {
+          if (tripContextId && planId) {
+            await submitRecommendationFeedback({
+              tripContextId,
+              planId,
+              questId,
+              feedbackType: "completed",
+              metadata: { surface: "quest_detail" },
+            });
+            trackUiEvent("recommendation_feedback_submitted", {
+              tripContextId,
+              planId,
+              questId,
+              feedbackType: "completed",
+              surface: "quest_detail",
+            });
+          }
           trackUiEvent("recommended_quest_completed", {
             questId,
             cityId: params.cityId,
           });
         }
         return result;
-      } catch (error) {
+      } catch {
         await enqueueQuestCompletion(payload);
         trackUiEvent("quest_claim_queued_offline", { questId });
         return {
@@ -172,7 +296,7 @@ export default function QuestDetailScreen() {
     <ScreenContainer padded={false}>
       <View style={styles.header}>
         <TopBar
-          title="Quest Detail"
+          title="Experience"
           left={
             <Pressable accessibilityRole="button" onPress={() => router.back()}>
               <Text style={styles.backLabel}>Back</Text>
@@ -188,16 +312,39 @@ export default function QuestDetailScreen() {
         />
 
         <GlassCard>
-          <Text style={styles.challengeLabel}>CHALLENGE</Text>
+          <Text style={styles.challengeLabel}>EXPERIENCE</Text>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
           <View style={styles.rewardRow}>
             <Text style={styles.rewardText}>Reward: {xpReward} XP</Text>
-            {badgeKey ? (
-              <Text style={styles.badgeText}>{badgeKey} Badge</Text>
-            ) : null}
+            {badgeKey ? <Text style={styles.badgeText}>{badgeKey} Badge</Text> : null}
           </View>
+          <ReasonList reasons={whyRecommended} style={styles.reasonBlock} />
         </GlassCard>
+
+        {source === "recommended" ? (
+          <GlassCard style={styles.secondaryActionsCard}>
+            <View style={styles.secondaryActionRow}>
+              <NeonButton
+                label="Save Plan"
+                variant="secondary"
+                onPress={() => savePlanMutation.mutate()}
+                loading={savePlanMutation.isPending}
+                disabled={!planId || !tripContextId || !cityId || !planPayload}
+              />
+              <NeonButton
+                label="Share"
+                variant="secondary"
+                onPress={() =>
+                  void Share.share({
+                    title,
+                    message: `${title}\n${description}`,
+                  })
+                }
+              />
+            </View>
+          </GlassCard>
+        ) : null}
 
         {completeMutation.error ? (
           <InlineError
@@ -281,6 +428,16 @@ const styles = StyleSheet.create({
   badgeText: {
     color: theme.colors.accentCyan,
     fontWeight: "700",
+  },
+  reasonBlock: {
+    marginTop: theme.spacing.sm,
+  },
+  secondaryActionsCard: {
+    paddingVertical: theme.spacing.sm,
+  },
+  secondaryActionRow: {
+    flexDirection: "row",
+    gap: theme.spacing.xs,
   },
   status: {
     fontSize: theme.typography.body.fontSize,
