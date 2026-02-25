@@ -1,20 +1,30 @@
 import type { ReactNode } from "react";
-import { SafeAreaView, StyleSheet, View, type ViewStyle } from "react-native";
+import {
+  SafeAreaView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { theme } from "../../theme";
+import { NightSkyBackdrop } from "./NightSkyBackdrop";
 
 type ScreenContainerProps = {
   children: ReactNode;
   padded?: boolean;
-  style?: ViewStyle;
+  showBackdrop?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function ScreenContainer({
   children,
   padded = true,
+  showBackdrop = true,
   style,
 }: ScreenContainerProps) {
   return (
     <SafeAreaView style={[styles.safe, style]}>
+      {showBackdrop ? <NightSkyBackdrop /> : null}
       <View style={[styles.inner, padded ? styles.padded : undefined]}>
         {children}
       </View>

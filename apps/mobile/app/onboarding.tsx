@@ -6,7 +6,7 @@ import { trackUiEvent } from "../src/analytics/events";
 import { updateMyProfile } from "../src/api/endpoints";
 import { useSessionStore } from "../src/state/session";
 import { theme } from "../src/theme";
-import { InlineError, NeonButton, ScreenContainer } from "../src/ui";
+import { GlassCard, InlineError, NeonButton, ScreenContainer } from "../src/ui";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,32}$/;
 
@@ -47,44 +47,49 @@ export default function OnboardingScreen() {
   return (
     <ScreenContainer>
       <View style={styles.root}>
-        <Text style={styles.title}>Pick your explorer name</Text>
-        <Text style={styles.subtitle}>
-          This is how friends will find you for quests, feed updates, and
-          profile compare.
-        </Text>
+        <View style={styles.heroWrap}>
+          <Text style={styles.title}>Stop scrolling.{"\n"}Start doing.</Text>
+          <Text style={styles.subtitle}>
+            Get a plan in under 2 minutes. Start by choosing your explorer name.
+          </Text>
+        </View>
 
-        <TextInput
-          value={username}
-          onChangeText={(value) => {
-            setUsername(value);
-            setErrorMessage(null);
-          }}
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={32}
-          placeholder="e.g. atul_explorer"
-          placeholderTextColor={theme.colors.textMuted}
-          style={styles.input}
-          accessibilityLabel="Username"
-        />
-
-        <Text style={styles.hint}>
-          Use 3-32 characters: letters, numbers, and underscore.
-        </Text>
-
-        {errorMessage ? <InlineError message={errorMessage} /> : null}
-        {submitMutation.error && !errorMessage ? (
-          <InlineError
-            message={String((submitMutation.error as Error).message)}
+        <GlassCard style={styles.formCard}>
+          <Text style={styles.formTitle}>Set your username</Text>
+          <TextInput
+            value={username}
+            onChangeText={(value) => {
+              setUsername(value);
+              setErrorMessage(null);
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={32}
+            placeholder="e.g. atul_explorer"
+            placeholderTextColor={theme.colors.textMuted}
+            style={styles.input}
+            accessibilityLabel="Username"
           />
-        ) : null}
 
-        <NeonButton
-          label="Start Questing"
-          loading={submitMutation.isPending}
-          disabled={!USERNAME_PATTERN.test(normalizedUsername)}
-          onPress={() => submitMutation.mutate()}
-        />
+          <Text style={styles.hint}>
+            Use 3-32 characters: letters, numbers, and underscore.
+          </Text>
+
+          {errorMessage ? <InlineError message={errorMessage} /> : null}
+          {submitMutation.error && !errorMessage ? (
+            <InlineError
+              message={String((submitMutation.error as Error).message)}
+            />
+          ) : null}
+
+          <NeonButton
+            label="Get Started"
+            loading={submitMutation.isPending}
+            disabled={!USERNAME_PATTERN.test(normalizedUsername)}
+            onPress={() => submitMutation.mutate()}
+            style={styles.ctaButton}
+          />
+        </GlassCard>
       </View>
     </ScreenContainer>
   );
@@ -93,33 +98,54 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "space-between",
+    paddingVertical: theme.spacing.xxl,
+    gap: theme.spacing.md,
+  },
+  heroWrap: {
+    paddingTop: theme.spacing.xxl,
     gap: theme.spacing.sm,
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: theme.typography.display.fontSize,
-    lineHeight: theme.typography.display.lineHeight,
+    fontSize: 44,
+    lineHeight: 48,
     fontWeight: "800",
   },
   subtitle: {
     color: theme.colors.textSecondary,
-    fontSize: theme.typography.body.fontSize,
-    lineHeight: theme.typography.body.lineHeight,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  formCard: {
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+  },
+  formTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "700",
   },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: "rgba(110, 148, 211, 0.40)",
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.backgroundElevated,
+    backgroundColor: "rgba(10, 18, 34, 0.75)",
     color: theme.colors.textPrimary,
     fontSize: theme.typography.body.fontSize,
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    minHeight: 48,
   },
   hint: {
     color: theme.colors.textMuted,
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
+  },
+  ctaButton: {
+    marginTop: theme.spacing.xs,
   },
 });

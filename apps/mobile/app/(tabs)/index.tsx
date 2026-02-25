@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import type { PlanBundle, TripContextStartRequest } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import {
@@ -28,6 +36,8 @@ import {
 
 type PlanContextInput = Omit<TripContextStartRequest, "cityId">;
 
+const VIBE_CHIPS = ["Chill", "Romantic", "Energetic", "Cultural", "Outdoors", "Foodie"];
+
 export default function PlanScreen() {
   const queryClient = useQueryClient();
   const activeCityId = useSessionStore((state) => state.activeCityId);
@@ -38,6 +48,7 @@ export default function PlanScreen() {
   const [plans, setPlans] = useState<PlanBundle[]>([]);
   const [plansError, setPlansError] = useState<string | null>(null);
   const [savingPlanId, setSavingPlanId] = useState<string | null>(null);
+  const [selectedVibe, setSelectedVibe] = useState<string>("Chill");
   const impressionRef = useRef<Set<string>>(new Set());
 
   const summaryQuery = useQuery({
@@ -133,12 +144,7 @@ export default function PlanScreen() {
         metadata: { surface: "plan_tab" },
       });
     }
-  }, [
-    activeCityId,
-    activeTripContextId,
-    plans,
-    submitFeedback,
-  ]);
+  }, [activeCityId, activeTripContextId, plans, submitFeedback]);
 
   const openPlanDetail = (plan: PlanBundle, action: "opened" | "started") => {
     const firstStop = plan.stops[0];
@@ -238,33 +244,56 @@ export default function PlanScreen() {
     }
   };
 
+  const userLabel = summaryQuery.data?.user.username.split("_")[0] ?? "Explorer";
+
   return (
     <ScreenContainer padded={false}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>
-          {summaryQuery.data
-            ? `Hey ${summaryQuery.data.user.username.split("_")[0]}`
-            : "Stop scrolling. Start doing."}
-        </Text>
+        <Text style={styles.tagline}>Stop scrolling.{"\n"}Start doing.</Text>
         <Text style={styles.subtext}>
-          Build a ready-to-go plan in under 2 minutes. {cityAnchor.label}
+          Good evening, {userLabel}. Plan your next outing in {cityAnchor.label} in under 2 minutes.
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <GlassCard style={styles.primaryCtaCard}>
-          <Text style={styles.primaryTitle}>Plan something now</Text>
-          <Text style={styles.primaryBody}>
-            Set context, time, and budget. We return a curated plan bundle with clear reasons.
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <GlassCard style={styles.ctaCard}>
+          <Text style={styles.ctaTitle}>Plan something now</Text>
+          <Text style={styles.ctaBody}>
+            Pick context, time, and budget. We’ll return a ready-made plan bundle.
           </Text>
           <NeonButton
-            label="Plan Now"
+            label="Show My Plan"
             onPress={() => setContextVisible(true)}
-            style={styles.primaryButton}
+            style={styles.ctaButton}
           />
+          <View style={styles.quickMetaRow}>
+            <Text style={styles.quickMeta}>Who: Solo/Couple/Friends/Family</Text>
+            <Text style={styles.quickMeta}>1-3 stops</Text>
+          </View>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Suggested plans</Text>
+        <View>
+          <Text style={styles.sectionTitle}>What vibes are you into?</Text>
+          <View style={styles.vibeGrid}>
+            {VIBE_CHIPS.map((vibe) => {
+              const active = selectedVibe === vibe;
+              return (
+                <Pressable
+                  key={vibe}
+                  accessibilityRole="button"
+                  onPress={() => setSelectedVibe(vibe)}
+                  style={[styles.vibeChip, active ? styles.vibeChipActive : undefined]}
+                >
+                  <Text style={[styles.vibeLabel, active ? styles.vibeLabelActive : undefined]}>
+                    {vibe}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Prepared plans</Text>
         {startPlanContextMutation.isPending ? (
           <LoadingShimmer label="Generating your plans..." />
         ) : null}
@@ -273,7 +302,7 @@ export default function PlanScreen() {
         {plans.length === 0 && !startPlanContextMutation.isPending ? (
           <EmptyState
             title="No plans yet"
-            description="Tap Plan Now to generate personalized options."
+            description="Tap Show My Plan to generate personalized options."
           />
         ) : null}
 
@@ -304,9 +333,9 @@ export default function PlanScreen() {
           />
         ) : null}
         {(savedPlansPreviewQuery.data?.items ?? []).map((item) => (
-          <GlassCard key={`saved-${item.planId}`} style={styles.savedPlanCard}>
-            <Text style={styles.savedPlanTitle}>{item.planPayload.title}</Text>
-            <Text style={styles.savedPlanMeta}>
+          <GlassCard key={`saved-${item.planId}`} style={styles.savedCard}>
+            <Text style={styles.savedTitle}>{item.planPayload.title}</Text>
+            <Text style={styles.savedMeta}>
               Updated {new Date(item.updatedAt).toLocaleDateString()}
             </Text>
           </GlassCard>
@@ -329,59 +358,96 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     gap: theme.spacing.xs,
   },
-  greeting: {
+  tagline: {
+    color: "#F4F8FF",
+    fontSize: 40,
+    lineHeight: 44,
+    fontWeight: "800",
+  },
+  subtext: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  content: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: 128,
+    gap: theme.spacing.md,
+  },
+  ctaCard: {
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.xs,
+  },
+  ctaTitle: {
     color: theme.colors.textPrimary,
     fontSize: 24,
     lineHeight: 30,
     fontWeight: "700",
   },
-  subtext: {
+  ctaBody: {
     color: theme.colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
-  content: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: 120,
-    gap: theme.spacing.md,
+  ctaButton: {
+    marginTop: theme.spacing.sm,
   },
-  primaryCtaCard: {
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.lg,
-  },
-  primaryTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "700",
-  },
-  primaryBody: {
+  quickMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: theme.spacing.xs,
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
   },
-  primaryButton: {
-    marginTop: theme.spacing.md,
-    minHeight: 52,
+  quickMeta: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
   },
   sectionTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: "700",
   },
-  savedPlanCard: {
+  vibeGrid: {
+    marginTop: theme.spacing.sm,
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing.xs,
   },
-  savedPlanTitle: {
+  vibeChip: {
+    minHeight: 44,
+    paddingHorizontal: theme.spacing.md,
+    justifyContent: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(106, 141, 203, 0.35)",
+    backgroundColor: "rgba(20, 32, 60, 0.82)",
+  },
+  vibeChipActive: {
+    borderColor: "rgba(110, 242, 218, 0.68)",
+    backgroundColor: "rgba(27, 90, 98, 0.64)",
+  },
+  vibeLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  vibeLabelActive: {
+    color: "#D4FFF6",
+  },
+  savedCard: {
+    gap: theme.spacing.xs,
+  },
+  savedTitle: {
     color: theme.colors.textPrimary,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: "700",
   },
-  savedPlanMeta: {
+  savedMeta: {
     color: theme.colors.textMuted,
     fontSize: 13,
     lineHeight: 18,

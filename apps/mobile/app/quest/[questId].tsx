@@ -296,7 +296,7 @@ export default function QuestDetailScreen() {
     <ScreenContainer padded={false}>
       <View style={styles.header}>
         <TopBar
-          title="Experience"
+          title="Tonight's Plan"
           left={
             <Pressable accessibilityRole="button" onPress={() => router.back()}>
               <Text style={styles.backLabel}>Back</Text>
@@ -384,12 +384,12 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: theme.spacing.md,
-    paddingBottom: 120,
+    paddingBottom: 128,
     gap: theme.spacing.md,
   },
   heroImage: {
     width: "100%",
-    height: 220,
+    height: 250,
     borderRadius: theme.radius.xl,
   },
   backLabel: {
@@ -404,8 +404,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: "800",
     marginTop: theme.spacing.xs,
   },

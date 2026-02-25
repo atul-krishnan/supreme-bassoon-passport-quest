@@ -3,6 +3,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type ViewStyle,
 } from "react-native";
 import { theme } from "../../theme";
@@ -42,9 +43,16 @@ export function NeonButton({
         style,
       ]}
     >
+      <View
+        pointerEvents="none"
+        style={[
+          styles.shine,
+          primary ? styles.primaryShine : styles.secondaryShine,
+        ]}
+      />
       {loading ? (
         <ActivityIndicator
-          color={primary ? "#03231A" : theme.colors.textPrimary}
+          color={primary ? "#031819" : theme.colors.textPrimary}
         />
       ) : null}
       <Text
@@ -61,22 +69,38 @@ export function NeonButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
+    minHeight: 52,
     borderRadius: theme.radius.xl,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.lg,
+    overflow: "hidden",
   },
   primary: {
-    backgroundColor: theme.colors.accentGreen,
+    backgroundColor: "#1E9D9F",
+    borderWidth: 1,
+    borderColor: "rgba(101, 240, 216, 0.55)",
     ...theme.elevation.glowGreen,
   },
   secondary: {
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: "rgba(30, 47, 82, 0.82)",
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: "rgba(116, 146, 206, 0.35)",
+  },
+  shine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "48%",
+  },
+  primaryShine: {
+    backgroundColor: "rgba(146, 255, 235, 0.22)",
+  },
+  secondaryShine: {
+    backgroundColor: "rgba(119, 155, 236, 0.16)",
   },
   disabled: {
     opacity: 0.55,
@@ -90,7 +114,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   primaryLabel: {
-    color: "#03231A",
+    color: "#ECFFFB",
   },
   secondaryLabel: {
     color: theme.colors.textPrimary,

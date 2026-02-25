@@ -49,14 +49,15 @@ export function QuestMiniCard({
 const styles = StyleSheet.create({
   card: {
     padding: theme.spacing.sm,
+    borderRadius: 18,
   },
   row: {
     flexDirection: "row",
     gap: theme.spacing.sm,
   },
   image: {
-    width: 98,
-    height: 88,
+    width: 108,
+    height: 92,
     borderRadius: theme.radius.md,
   },
   imageCompact: {
@@ -70,7 +71,8 @@ const styles = StyleSheet.create({
   title: {
     color: theme.colors.textPrimary,
     fontWeight: "700",
-    fontSize: 17,
+    fontSize: 20,
+    lineHeight: 24,
   },
   subtitle: {
     color: theme.colors.textSecondary,

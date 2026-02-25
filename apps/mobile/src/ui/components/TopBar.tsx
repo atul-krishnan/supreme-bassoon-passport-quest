@@ -27,6 +27,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingBottom: theme.spacing.sm,
+    minHeight: 52,
   },
   side: {
     width: 56,
@@ -42,9 +43,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: theme.typography.title.fontSize,
-    lineHeight: theme.typography.title.lineHeight,
-    fontWeight: theme.typography.title.fontWeight,
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "700",
     fontFamily: theme.typography.title.fontFamily,
   },
   subtitle: {

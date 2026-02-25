@@ -46,15 +46,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   track: {
-    height: 10,
+    height: 8,
     borderRadius: 999,
-    backgroundColor: "#1B2748",
+    backgroundColor: "rgba(32, 48, 87, 0.82)",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(106, 139, 199, 0.28)",
   },
   fill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: theme.colors.accentCyan,
+    backgroundColor: "#29D6C7",
     ...theme.elevation.glowCyan,
   },
 });
