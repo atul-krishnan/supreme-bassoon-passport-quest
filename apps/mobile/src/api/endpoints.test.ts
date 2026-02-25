@@ -1,8 +1,13 @@
 import {
   completeQuest,
+  deleteSavedPlan,
+  getRecommendedPlans,
+  getSavedPlans,
   getHealth,
   getIncomingFriendRequests,
   getNearbyQuests,
+  savePlan,
+  startTripContext,
 } from "./endpoints";
 import { apiRequest } from "./http";
 
@@ -71,6 +76,114 @@ describe("API endpoint contracts", () => {
     expect(apiRequest).toHaveBeenCalledWith({
       method: "GET",
       path: "/health",
+    });
+  });
+
+  it("calls trip context start contract", async () => {
+    await startTripContext({
+      cityId: "blr",
+      contextType: "couple",
+      timeBudgetMin: 180,
+      budget: "medium",
+      pace: "balanced",
+      vibeTags: ["romantic"],
+      constraints: {},
+    });
+    expect(apiRequest).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/trips/context/start",
+      body: {
+        cityId: "blr",
+        contextType: "couple",
+        timeBudgetMin: 180,
+        budget: "medium",
+        pace: "balanced",
+        vibeTags: ["romantic"],
+        constraints: {},
+      },
+    });
+  });
+
+  it("calls recommended plans contract", async () => {
+    await getRecommendedPlans({
+      cityId: "blr",
+      tripContextId: "ctx_123",
+      limit: 3,
+    });
+    expect(apiRequest).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/plans/recommended",
+      query: {
+        cityId: "blr",
+        tripContextId: "ctx_123",
+        limit: 3,
+      },
+    });
+  });
+
+  it("calls save/get/delete saved plans contracts", async () => {
+    await savePlan({
+      planId: "plan_123",
+      tripContextId: "ctx_123",
+      cityId: "blr",
+      planPayload: {
+        planId: "plan_123",
+        title: "Date Plan",
+        summary: "Evening plan",
+        estimatedDurationMin: 120,
+        estimatedSpendBand: "medium",
+        whyRecommended: ["Fits your budget", "Great for couples"],
+        stops: [
+          {
+            questId: "quest_1",
+            title: "Stop 1",
+            order: 1,
+            visitDurationMin: 60,
+            storySnippet: "Story",
+            practicalDetails: ["Detail 1"],
+          },
+        ],
+      },
+    });
+    expect(apiRequest).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/plans/save",
+      body: {
+        planId: "plan_123",
+        tripContextId: "ctx_123",
+        cityId: "blr",
+        planPayload: {
+          planId: "plan_123",
+          title: "Date Plan",
+          summary: "Evening plan",
+          estimatedDurationMin: 120,
+          estimatedSpendBand: "medium",
+          whyRecommended: ["Fits your budget", "Great for couples"],
+          stops: [
+            {
+              questId: "quest_1",
+              title: "Stop 1",
+              order: 1,
+              visitDurationMin: 60,
+              storySnippet: "Story",
+              practicalDetails: ["Detail 1"],
+            },
+          ],
+        },
+      },
+    });
+
+    await getSavedPlans(20, "cursor_1");
+    expect(apiRequest).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/plans/saved",
+      query: { limit: 20, cursor: "cursor_1" },
+    });
+
+    await deleteSavedPlan("plan_123");
+    expect(apiRequest).toHaveBeenCalledWith({
+      method: "DELETE",
+      path: "/plans/saved/plan_123",
     });
   });
 });

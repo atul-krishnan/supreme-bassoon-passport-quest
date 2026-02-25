@@ -1,8 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
+const LOCAL_SUPABASE_ANON_FALLBACK =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 const publishableKey =
-  process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+  process.env.SUPABASE_PUBLISHABLE_KEY ??
+  process.env.SUPABASE_ANON_KEY ??
+  LOCAL_SUPABASE_ANON_FALLBACK;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const apiBaseUrl =
   process.env.API_BASE_URL ?? `${supabaseUrl}/functions/v1/v1`;
@@ -37,13 +41,18 @@ function isRetryableStatus(status) {
   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
-async function http(path, token) {
+async function http(path, token, options = {}) {
+  const method = options.method ?? "GET";
+  const body =
+    options.body === undefined ? undefined : JSON.stringify(options.body);
   const response = await fetch(`${apiBaseUrl}${path}`, {
+    method,
     headers: {
       Authorization: `Bearer ${token}`,
       apikey: publishableKey,
       "Content-Type": "application/json",
     },
+    body,
   });
 
   const text = await response.text();
@@ -59,13 +68,13 @@ async function http(path, token) {
   return { response, json, text };
 }
 
-async function httpWithRetry(path, token, label) {
+async function httpWithRetry(path, token, label, options = {}) {
   let lastResult = null;
   let lastError = null;
 
   for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
     try {
-      const result = await http(path, token);
+      const result = await http(path, token, options);
       lastResult = result;
       if (!isRetryableStatus(result.response.status) || attempt === retryAttempts) {
         return result;
@@ -251,6 +260,99 @@ async function main() {
   assert(summary.response.status === 200, `Summary check failed: ${summary.response.status} ${summary.text}`);
   assert(typeof summary.json?.user?.id === "string", "Summary user.id missing");
   assert(typeof summary.json?.stats?.level === "number", "Summary stats.level missing");
+
+  const startContext = await httpWithRetry(
+    "/trips/context/start",
+    token,
+    "trip_context_start",
+    {
+      method: "POST",
+      body: {
+        cityId,
+        contextType: "couple",
+        timeBudgetMin: 180,
+        budget: "medium",
+        pace: "balanced",
+        vibeTags: ["romantic", "foodie"],
+        constraints: {},
+      },
+    },
+  );
+  assert(
+    startContext.response.status === 200,
+    `Trip context start failed: ${startContext.response.status} ${startContext.text}`,
+  );
+  assert(
+    typeof startContext.json?.tripContextId === "string",
+    "Trip context tripContextId missing",
+  );
+
+  const tripContextId = startContext.json.tripContextId;
+  const recommendedPlans = await httpWithRetry(
+    `/plans/recommended?cityId=${encodeURIComponent(cityId)}&tripContextId=${encodeURIComponent(tripContextId)}&limit=3`,
+    token,
+    "plans_recommended",
+  );
+  assert(
+    recommendedPlans.response.status === 200,
+    `Plans recommended failed: ${recommendedPlans.response.status} ${recommendedPlans.text}`,
+  );
+  assert(
+    Array.isArray(recommendedPlans.json?.plans),
+    "Recommended plans payload missing plans array",
+  );
+  assert(
+    recommendedPlans.json.plans.length > 0,
+    "Recommended plans should return at least one plan",
+  );
+
+  const firstPlan = recommendedPlans.json.plans[0];
+  const savePlanResult = await httpWithRetry(
+    "/plans/save",
+    token,
+    "plans_save",
+    {
+      method: "POST",
+      body: {
+        planId: firstPlan.planId,
+        tripContextId,
+        cityId,
+        planPayload: firstPlan,
+      },
+    },
+  );
+  assert(
+    savePlanResult.response.status === 200,
+    `Plans save failed: ${savePlanResult.response.status} ${savePlanResult.text}`,
+  );
+  assert(savePlanResult.json?.status === "saved", "Plans save status must be saved");
+
+  const savedPlans = await httpWithRetry(
+    "/plans/saved?limit=5",
+    token,
+    "plans_saved",
+  );
+  assert(
+    savedPlans.response.status === 200,
+    `Plans saved fetch failed: ${savedPlans.response.status} ${savedPlans.text}`,
+  );
+  assert(Array.isArray(savedPlans.json?.items), "Saved plans items must be an array");
+  assert(
+    savedPlans.json.items.some((item) => item.planId === firstPlan.planId),
+    "Saved plans should include the recently saved plan",
+  );
+
+  const deleteSaved = await httpWithRetry(
+    `/plans/saved/${encodeURIComponent(firstPlan.planId)}`,
+    token,
+    "plans_saved_delete",
+    { method: "DELETE" },
+  );
+  assert(
+    deleteSaved.response.status === 200,
+    `Delete saved plan failed: ${deleteSaved.response.status} ${deleteSaved.text}`,
+  );
+  assert(deleteSaved.json?.status === "deleted", "Delete saved plan status must be deleted");
 
   console.log(
     JSON.stringify(

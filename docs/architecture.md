@@ -1,275 +1,168 @@
-# Passport Quest Architecture (Living Document)
+# Passport Quest Architecture (Phase A Plan-First V1)
 
-Last updated: February 21, 2026  
-Scope: India-first MVP v1 (Bangalore production, Delhi/Pune post-gate)
+Last updated: February 26, 2026  
+Scope: Phase A (7-day) implementation, staging-first validation from Thaliparamba
 
-## 1. Architecture goals
+## 1. Architecture intent
 
-- Keep gameplay trust server-side.
-- Keep client resilient to flaky/mobile networks.
-- Keep APIs and schema additive in MVP.
-- Keep city behavior configurable without app redeploy.
+- Keep planning as the primary product loop: `Plan -> Start -> Complete -> Return`.
+- Keep API/schema additive-only for MVP stability.
+- Keep production UX Bangalore-first while allowing non-production QA city override.
+- Keep recommendation logic explainable and deterministic (rule-based bundle engine).
 
 ## 2. High-level system design
 
 ```mermaid
 flowchart LR
   subgraph Mobile["Mobile App (Expo React Native)"]
-    UI["UI Screens + Design System"]
-    Router["expo-router Navigation"]
-    Query["TanStack Query"]
-    Session["Zustand Session Store"]
-    Offline["SQLite Offline Queue"]
-    Secure["SecureStore Token Cache"]
-    GPS["expo-location + react-native-maps"]
-    UI --> Router
-    UI --> Query
-    UI --> Session
-    UI --> GPS
-    Session --> Secure
-    UI --> Offline
+    Tabs["5-tab IA"]
+    Plan["Plan Context Sheet + Plan Cards"]
+    Explore["Map + Nearby"]
+    Progress["XP + Badges"]
+    Social["Bounded Feed"]
+    Profile["QA Controls"]
+    State["Zustand Session + Offline Queue"]
+    Query["TanStack Query API layer"]
+    Tabs --> Plan
+    Tabs --> Explore
+    Tabs --> Progress
+    Tabs --> Social
+    Tabs --> Profile
+    Plan --> Query
+    Explore --> Query
+    Profile --> State
+    Query --> State
   end
 
-  Mobile -->|"Bearer token + REST"| Edge["Supabase Edge Function: v1 router"]
-  Edge --> Auth["Supabase Auth (JWT verification)"]
-  Edge --> RPC["Postgres RPC / SQL functions"]
-  RPC --> DB["Postgres + RLS tables"]
-  DB --> RPC
-  RPC --> Edge
+  Mobile -->|"Bearer token + REST"| Edge["Supabase Edge Function: /v1 router"]
+  Edge --> Auth["Supabase Auth (JWT)"]
+  Edge --> DBRPC["Postgres RPC + SQL"]
+  DBRPC --> DB["Postgres + RLS"]
 ```
 
 ## 3. Repository mapping
 
-- `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile`: Mobile app, UI, state, API client, offline queue.
-- `/Users/atulkrishnan/Documents/Passport Quest/packages/shared`: Shared API contracts/types.
-- `/Users/atulkrishnan/Documents/Passport Quest/supabase/functions/v1`: Edge API router.
-- `/Users/atulkrishnan/Documents/Passport Quest/supabase/migrations`: Schema, RLS, RPCs, seed data.
-- `/Users/atulkrishnan/Documents/Passport Quest/docs`: Architecture + product/rollout docs.
+- `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile`: tabs, plan UX, profile QA controls, API client.
+- `/Users/atulkrishnan/Documents/Passport Quest/packages/shared`: request/response contracts and shared types.
+- `/Users/atulkrishnan/Documents/Passport Quest/supabase/functions/v1`: API routing, recommendation bundle assembly.
+- `/Users/atulkrishnan/Documents/Passport Quest/supabase/migrations`: schema, RLS, RPC functions.
+- `/Users/atulkrishnan/Documents/Passport Quest/docs`: architecture, QA checklist, UAT evidence.
 
 ## 4. Mobile architecture
 
-### 4.1 Presentation and navigation
+### 4.1 Information architecture (cutover completed)
 
-- `expo-router` route tree with 4 tabs:
-- `Map` (`app/(tabs)/index.tsx`)
-- `Quests` (`app/(tabs)/quests.tsx`)
-- `Social` (`app/(tabs)/social.tsx`)
-- `Profile` (`app/(tabs)/profile.tsx`)
-- Quest detail route:
-- `app/quest/[questId].tsx`
-- App-facing city UX is fixed to Bangalore (`blr`) for MVP pilot validation.
+- `Plan`: `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app/(tabs)/index.tsx`
+- `Explore`: `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app/(tabs)/explore.tsx`
+- `Progress`: `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app/(tabs)/progress.tsx`
+- `Social`: `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app/(tabs)/social.tsx`
+- `Profile`: `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app/(tabs)/profile.tsx`
+- Experience detail: `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app/quest/[questId].tsx`
 
-### 4.2 UI system
+### 4.2 Plan-first components
 
-- Theme tokens in `src/theme`:
-- Color, spacing, typography, radius, elevation, motion tokens.
-- Reusable components in `src/ui/components`:
-- `ScreenContainer`, `TopBar`, `GlassCard`, `NeonButton`, `XPBar`, `QuestMiniCard`, etc.
+- `PlanContextSheet`: captures context type, time budget, budget, pace, vibe tags.
+- `PlanCard`: renders bundle, explainability reasons, Start/Save/Share actions.
+- `ReasonList`: reused explainability block on plan cards and detail surface.
 
-### 4.3 State and data
+### 4.3 City behavior
 
-- `Zustand` session store for token/user/city state.
-- `TanStack Query` for server reads and invalidation after writes.
-- Offline write queue in SQLite (`offline_events`) with exponential backoff retries.
+- Production: city selector hidden, Bangalore remains default UX.
+- Non-production: QA-only city switcher is exposed in Profile QA section.
+- Runtime city comes from session state (`activeCityId`) and is used across bootstrap and plan APIs.
 
 ## 5. Backend architecture
 
-### 5.1 Edge API routes (current)
+### 5.1 New Phase A API routes
 
-- `GET /v1/quests/nearby`
-- `POST /v1/quests/complete`
-- `GET /v1/social/feed`
-- `POST /v1/social/friends/request`
-- `POST /v1/social/friends/request-by-username`
-- `POST /v1/social/friends/accept`
-- `GET /v1/social/friend-requests/incoming`
-- `GET /v1/users/me/profile-compare`
-- `GET /v1/config/bootstrap`
-- `GET /v1/users/me/summary` (additive read endpoint)
-- `GET /v1/users/me/badges` (additive read endpoint)
-- `PATCH /v1/users/me/profile` (additive profile mutation endpoint)
-- `POST /v1/notifications/register-token` (additive push registration endpoint)
-- `GET /v1/health` (additive release/parity smoke endpoint)
+- `POST /v1/trips/context/start`
+- `PATCH /v1/trips/context/{tripContextId}`
+- `POST /v1/trips/context/{tripContextId}/end`
+- `GET /v1/plans/recommended?cityId={cityId}&tripContextId={tripContextId}&limit={n}`
+- `GET /v1/quests/recommended?cityId={cityId}&tripContextId={tripContextId}&limit={n}` (compat alias)
+- `POST /v1/recommendations/feedback`
+- `POST /v1/plans/save`
+- `GET /v1/plans/saved?limit={n}&cursor={cursor}`
+- `DELETE /v1/plans/saved/{planId}`
 
-### 5.2 Core RPC / server logic
+Existing V1 routes remain additive and backward compatible.
 
-- `get_nearby_quests`: city-aware geofence query.
-- `complete_quest`: anti-cheat + idempotency + XP/level/streak + badge unlock in trusted transaction.
-- `request_friend` and `accept_friend_request`: async social graph mutation.
-- `request_friend_by_username` and `get_incoming_friend_requests`: username-first social UX.
-- `get_social_feed`: feed pagination.
-- `profile_compare`: friend-scoped compare response.
-- `get_bootstrap_config`: city runtime config payload.
-- `assign_experiment_variant`: deterministic holdout assignment persisted per user.
-- `upsert_user_push_token`: push token storage for nudge delivery.
+### 5.2 Recommendation engine shape
 
-### 5.3 Security model
+- Input: trip context + city + active quests + quest experience tags.
+- Candidate scoring: context fit, vibe overlap, budget/pace heuristics.
+- Output: plan bundles with explainability (`whyRecommended[]`) and ordered stops.
+- Fallback: no hard error on low candidate pool; still returns usable plan output.
 
-- JWT required on all v1 routes.
-- RLS enabled across gameplay/social tables.
-- Sensitive mutations restricted to server function path.
-- Idempotency uniqueness: `(user_id, device_event_id)` in `quest_completions`.
+### 5.3 New database objects
 
-## 6. Data model domains
+- `trip_context_sessions`
+- `quest_experience_tags`
+- `recommendation_feedback`
+- `saved_plans`
 
-### City/config
+Key constraints:
 
-- `cities`
-- `city_runtime_config`
+- `saved_plans` uniqueness: `(user_id, plan_id)`.
+- Retention enforced at save-time: keep latest 50 plans/user.
+- All new tables have RLS enabled.
 
-### Identity/progression
+## 6. Runtime flows
 
-- `profiles`
-- `user_stats`
-- `badges`
-- `user_badges`
-
-### Gameplay
-
-- `quests`
-- `quest_completions`
-
-### Social
-
-- `friend_requests`
-- `friendships`
-- `activity_feed_events`
-
-### Notifications/experiments
-
-- `user_push_tokens`
-- `user_experiments`
-
-### Security telemetry
-
-- `security_events`
-
-## 7. Key runtime flows
-
-### 7.1 Guest bootstrap flow
+### 6.1 Plan generation flow
 
 ```mermaid
 sequenceDiagram
-  participant App
-  participant SecureStore
-  participant SupabaseAuth
-
-  App->>SecureStore: read cached token
-  alt token exists and valid
-    App->>SupabaseAuth: getUser(token)
-    SupabaseAuth-->>App: user
-  else no valid token
-    App->>SupabaseAuth: signInAnonymously()
-    alt anonymous disabled
-      App->>SupabaseAuth: signInWithPassword(guest creds)
-      alt missing account
-        App->>SupabaseAuth: signUp(guest creds)
-      end
-    end
-  end
-  App->>SecureStore: persist access token
-```
-
-### 7.2 Quest completion (online/offline)
-
-```mermaid
-sequenceDiagram
-  participant User
   participant App
   participant Edge
-  participant RPC
   participant DB
-  participant Queue as SQLite Queue
 
-  User->>App: Tap "Claim Reward"
-  App->>Edge: POST /v1/quests/complete
-  alt network/API success
-    Edge->>RPC: complete_quest(...)
-    RPC->>DB: validate + write progression
-    DB-->>RPC: result
-    RPC-->>Edge: accepted/rejected/duplicate
-    Edge-->>App: response
-  else network/API failure
-    App->>Queue: enqueue completion payload
-    App-->>User: "Saved offline, will sync automatically"
-  end
-  App->>Queue: periodic flush (15s)
-  Queue->>Edge: retry due events
+  App->>Edge: POST /trips/context/start
+  Edge->>DB: start_trip_context(...)
+  DB-->>Edge: tripContextId
+  Edge-->>App: context response
+  App->>Edge: GET /plans/recommended
+  Edge->>DB: read context + quests + tags
+  Edge-->>App: plans[] with whyRecommended
 ```
 
-### 7.3 Social flow
+### 6.2 Save plan flow
 
-1. Send friend request by username (`/social/friends/request-by-username`).
-2. Receiver accepts from incoming pending list (`/social/friends/accept` + `/social/friend-requests/incoming`).
-3. Feed events become visible through `/social/feed`.
-4. Profile compare uses friend-only scope (`/users/me/profile-compare`).
+```mermaid
+sequenceDiagram
+  participant App
+  participant Edge
+  participant DB
 
-## 8. Reliability and performance seams
+  App->>Edge: POST /plans/save
+  Edge->>DB: save_plan(...)
+  DB->>DB: enforce latest 50 retention
+  DB-->>Edge: saved response
+  Edge-->>App: status=saved
+```
 
-- Offline queue durability across app restarts (SQLite).
-- Server idempotency guarantee on quest completion.
-- Anti-cheat thresholds loaded from `city_runtime_config`.
-- City-specific behavior controlled by runtime config and feature flags.
+## 7. Analytics and quality gates
 
-## 9. Evolution policy (important)
+Tracked events include:
 
-### 9.1 API and schema
+- `trip_context_started`
+- `trip_context_updated`
+- `trip_context_ended`
+- `recommended_quest_impression`
+- `recommended_quest_opened`
+- `recommended_quest_started`
+- `recommended_quest_completed`
+- `recommendation_feedback_submitted`
 
-- v1 API is additive-only during MVP:
-- Allowed: new fields, new endpoints.
-- Not allowed: field removals/renames, behavior-breaking changes.
-- DB changes via additive migrations only.
+Release gates:
 
-### 9.2 City expansion
+- `npm run mobile:typecheck`
+- `npm run mobile:test`
+- `npm run supabase:test`
+- `npm run contracts:smoke`
 
-- Rollout order: `blr -> del -> pune -> international`.
-- Keep Bangalore as default live pilot (`cityId=blr`).
-- Keep Delhi (`del`) and Pune (`pune`) as post-gate rollout cities.
-- Keep NYC in backend staging/content-prep path only (not exposed in app UI).
-- Use `city_runtime_config` for anti-cheat, quiet hours, and feature flags.
+## 8. Guardrails
 
-### 9.3 Change governance
-
-- For any non-trivial architecture change:
-- Add a short ADR in `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/`.
-- Start from `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/0000-template.md`.
-- Update this file in the same PR.
-- Include migration and rollback notes.
-
-## 10. Documentation and Git update cadence (recommended)
-
-### 10.1 Git cadence
-
-- Commit per logical slice (one concern per commit).
-- Active coding sessions: commit every 2-4 hours or at each stable checkpoint.
-- Push at least once per day, and always before context switch/end of day.
-- Open PR when a vertical feature slice is testable (do not wait for huge batches).
-
-### 10.2 Architecture doc cadence
-
-- Mandatory update in same PR when any of these change:
-- Route contract or endpoint behavior.
-- DB schema or RLS policy.
-- Core flow (auth, completion, offline sync, social).
-- Navigation IA or screen ownership boundaries.
-- Weekly architecture review checkpoint:
-- Every Friday, verify this doc matches shipped code.
-- Monthly hardening checkpoint:
-- Revisit risks, tech debt, and security advisories.
-
-## 11. Current known risk
-
-- `npm audit` high findings are mostly transitive in Expo/RN tooling for current SDK line.
-- Mitigation now:
-- Keep `npm install` noise-free and run `npm run security:audit` explicitly in CI/manual checks.
-- Planned mitigation:
-- Controlled Expo/RN SDK upgrade track in dedicated PR series.
-
-## 12. Related ADRs
-
-- `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/0002-india-first-rollout-delhi-pune.md`
-
-## 13. Forward roadmap docs
-
-- `/Users/atulkrishnan/Documents/Passport Quest/docs/trip-context-model.md`
-- `/Users/atulkrishnan/Documents/Passport Quest/docs/roadmap-v1.1-v1.2.md`
+- API/schema remain additive-only for MVP.
+- Plan-first feature is governed by `planV1Enabled` runtime flag.
+- No Bangalore hardcoding in shared UI logic beyond production UX defaults.
