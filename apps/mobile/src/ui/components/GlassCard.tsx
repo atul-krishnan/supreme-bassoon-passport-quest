@@ -13,9 +13,9 @@ export function GlassCard({ children, style }: GlassCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: "rgba(12, 20, 40, 0.82)",
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: "rgba(109, 146, 210, 0.26)",
     borderRadius: theme.radius.lg,
     padding: theme.spacing.md,
     ...theme.elevation.card,

@@ -152,7 +152,7 @@ export default function ProfileScreen() {
   return (
     <ScreenContainer padded={false}>
       <View style={styles.header}>
-        <TopBar title="Profile & Badges" />
+        <TopBar title="Profile" />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -464,8 +464,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: theme.spacing.md,
-    paddingBottom: 120,
-    gap: theme.spacing.sm,
+    paddingBottom: 128,
+    gap: theme.spacing.md,
   },
   profileHead: {
     flexDirection: "row",
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   },
   username: {
     color: theme.colors.textPrimary,
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "800",
   },
   levelLabel: {
@@ -530,7 +530,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 22,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: "800",
     marginTop: theme.spacing.sm,
   },
@@ -566,6 +567,8 @@ const styles = StyleSheet.create({
   },
   cityLabel: {
     color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   runtimeHint: {
     color: theme.colors.textMuted,

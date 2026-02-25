@@ -8,7 +8,6 @@ import {
   InlineError,
   LoadingShimmer,
   ScreenContainer,
-  StatTile,
   TopBar,
   XPBar,
 } from "../../src/ui";
@@ -31,6 +30,7 @@ export default function ProgressScreen() {
 
   const summary = summaryQuery.data;
   const badges = badgesQuery.data?.badges ?? [];
+  const unlockedBadges = badges.filter((badge) => badge.unlocked);
 
   return (
     <ScreenContainer padded={false}>
@@ -38,35 +38,41 @@ export default function ProgressScreen() {
         <TopBar title="Progress" />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {summaryQuery.isLoading ? <LoadingShimmer label="Loading progress..." /> : null}
         {summaryQuery.error ? <InlineError message="Could not load progress summary." /> : null}
 
         {summary ? (
-          <>
-            <GlassCard style={styles.levelCard}>
-              <Text style={styles.levelTitle}>Level {summary.stats.level}</Text>
-              <Text style={styles.levelSubtitle}>XP total: {summary.stats.xpTotal}</Text>
-              <View style={{ height: theme.spacing.sm }} />
-              <XPBar
-                value={summary.stats.xpTotal}
-                max={Math.max(100, summary.stats.level * 200)}
-                label="Progress to next level"
-              />
-            </GlassCard>
-
-            <View style={styles.statsRow}>
-              <StatTile label="Quests" value={summary.stats.questsCompleted} />
-              <StatTile label="Streak" value={summary.stats.streakDays} />
-              <StatTile
-                label="Saved Plans"
-                value={savedPlansQuery.data?.items.length ?? 0}
-              />
+          <GlassCard style={styles.heroCard}>
+            <Text style={styles.heroName}>{summary.user.username}</Text>
+            <Text style={styles.heroSubtitle}>Explorer level {summary.stats.level}</Text>
+            <View style={{ height: theme.spacing.sm }} />
+            <XPBar
+              value={summary.stats.xpTotal}
+              max={Math.max(100, summary.stats.level * 200)}
+              label="Journey progression"
+            />
+            <View style={styles.metricRow}>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricValue}>{summary.stats.questsCompleted}</Text>
+                <Text style={styles.metricLabel}>Quests</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricValue}>{summary.stats.streakDays}</Text>
+                <Text style={styles.metricLabel}>Streak</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricValue}>{savedPlansQuery.data?.items.length ?? 0}</Text>
+                <Text style={styles.metricLabel}>Saved</Text>
+              </View>
             </View>
-          </>
+          </GlassCard>
         ) : null}
 
-        <Text style={styles.sectionTitle}>Badges</Text>
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Badges</Text>
+          <Text style={styles.sectionMeta}>{unlockedBadges.length}/{badges.length}</Text>
+        </View>
         {badgesQuery.isLoading ? <LoadingShimmer label="Loading badges..." /> : null}
         {badgesQuery.error ? <InlineError message="Could not load badges right now." /> : null}
         {badgesQuery.isSuccess && badges.length === 0 ? (
@@ -80,12 +86,11 @@ export default function ProgressScreen() {
           {badges.map((badge) => (
             <GlassCard
               key={badge.key}
-              style={[
-                styles.badgeCard,
-                !badge.unlocked ? styles.badgeCardLocked : undefined,
-              ]}
+              style={[styles.badgeCard, !badge.unlocked ? styles.badgeLocked : undefined]}
             >
-              <Text style={styles.badgeName}>{badge.name}</Text>
+              <Text style={styles.badgeName} numberOfLines={2}>
+                {badge.name}
+              </Text>
               <Text style={styles.badgeState}>
                 {badge.unlocked ? "Unlocked" : "Locked"}
               </Text>
@@ -104,33 +109,67 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: theme.spacing.md,
-    paddingBottom: 120,
+    paddingBottom: 128,
     gap: theme.spacing.md,
   },
-  levelCard: {
-    borderRadius: theme.radius.xl,
+  heroCard: {
+    borderRadius: 20,
+    gap: theme.spacing.xs,
   },
-  levelTitle: {
+  heroName: {
     color: theme.colors.textPrimary,
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 26,
+    lineHeight: 30,
     fontWeight: "700",
   },
-  levelSubtitle: {
+  heroSubtitle: {
     color: theme.colors.textSecondary,
-    marginTop: theme.spacing.xs,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 18,
   },
-  statsRow: {
+  metricRow: {
+    marginTop: theme.spacing.sm,
     flexDirection: "row",
+    justifyContent: "space-between",
     gap: theme.spacing.xs,
+  },
+  metricItem: {
+    flex: 1,
+    minHeight: 72,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(108, 144, 210, 0.26)",
+    backgroundColor: "rgba(14, 24, 45, 0.72)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  metricValue: {
+    color: theme.colors.textPrimary,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: "700",
+  },
+  metricLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  sectionHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   sectionTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: "700",
+  },
+  sectionMeta: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
   },
   badgeGrid: {
     flexDirection: "row",
@@ -139,11 +178,11 @@ const styles = StyleSheet.create({
   },
   badgeCard: {
     width: "47%",
-    minHeight: 96,
+    minHeight: 116,
     justifyContent: "space-between",
   },
-  badgeCardLocked: {
-    opacity: 0.4,
+  badgeLocked: {
+    opacity: 0.42,
   },
   badgeName: {
     color: theme.colors.textPrimary,

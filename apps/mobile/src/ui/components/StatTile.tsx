@@ -20,6 +20,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     paddingVertical: theme.spacing.sm,
+    borderRadius: 16,
     alignItems: "center",
   },
   value: {

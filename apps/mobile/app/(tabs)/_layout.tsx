@@ -16,11 +16,17 @@ export default function TabLayout() {
         tabBarActiveTintColor: theme.colors.accentGreen,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
-          backgroundColor: "#050914",
-          borderTopColor: theme.colors.border,
-          height: 74,
+          position: "absolute",
+          left: 12,
+          right: 12,
+          bottom: 10,
+          borderRadius: 18,
+          backgroundColor: "rgba(8, 14, 28, 0.95)",
+          borderTopColor: "rgba(110, 145, 208, 0.26)",
+          borderTopWidth: 1,
+          height: 72,
           paddingTop: 6,
-          paddingBottom: 8,
+          paddingBottom: 10,
         },
         tabBarLabelStyle: {
           fontWeight: "600",
@@ -71,6 +77,12 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="quests"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

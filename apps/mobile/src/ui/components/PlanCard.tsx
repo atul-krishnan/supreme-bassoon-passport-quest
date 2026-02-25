@@ -55,7 +55,7 @@ export function PlanCard({
         <ReasonList reasons={plan.whyRecommended} maxItems={2} style={styles.reasons} />
 
         <View style={styles.actionRow}>
-          <NeonButton label="Start Plan" onPress={onStart} style={styles.startButton} />
+          <NeonButton label="Find Plans" onPress={onStart} style={styles.startButton} />
           <NeonButton
             label={saving ? "Saving..." : "Save"}
             variant="secondary"
@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
   card: {
     gap: theme.spacing.sm,
     padding: theme.spacing.sm,
+    borderRadius: 18,
   },
   heroWrap: {
     borderRadius: theme.radius.md,
@@ -104,8 +105,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: "700",
   },
   summary: {
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   metaValue: {
-    color: theme.colors.accentCyan,
+    color: "#91E9DC",
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "600",

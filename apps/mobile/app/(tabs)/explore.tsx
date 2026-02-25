@@ -96,7 +96,7 @@ export default function ExploreScreen() {
     lng: number;
     accuracyM: number;
   } | null>(null);
-  const radiusM = 1200;
+  const radiusM = 1600;
 
   const requestDeviceLocation = useCallback(async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -195,11 +195,14 @@ export default function ExploreScreen() {
     <ScreenContainer padded={false}>
       <View style={styles.header}>
         <TopBar title="Explore" subtitle={cityAnchor.label} />
-        <GlassCard>
+        <GlassCard style={styles.topStrip}>
+          <Text style={styles.topStripLabel}>Selected profile: vibe + context aware</Text>
+        </GlassCard>
+        <GlassCard style={styles.summaryCard}>
           <XPBar
             value={summaryQuery.data?.stats.xpTotal ?? 0}
             max={Math.max(100, (summaryQuery.data?.stats.level ?? 1) * 200)}
-            label={`Level ${summaryQuery.data?.stats.level ?? 1} Explorer`}
+            label={`Level ${summaryQuery.data?.stats.level ?? 1} explorer`}
           />
         </GlassCard>
       </View>
@@ -208,7 +211,7 @@ export default function ExploreScreen() {
         {isFarFromSelectedCity ? (
           <GlassCard style={styles.bannerCard}>
             <Text style={styles.bannerText}>
-              You are far from {cityAnchor.label}. Use test location to preview nearby experiences.
+              You’re far from {cityAnchor.label}. Enable test location to validate explore flows.
             </Text>
             <View style={{ height: theme.spacing.xs }} />
             <Pressable
@@ -254,7 +257,7 @@ export default function ExploreScreen() {
                   }}
                   title={quest.title}
                   description={`${quest.xpReward} XP reward`}
-                  pinColor={theme.colors.accentPurple}
+                  pinColor={theme.colors.accentGreen}
                   onCalloutPress={() => openQuestDetail(quest)}
                 />
               ))}
@@ -302,7 +305,19 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.sm,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  topStrip: {
+    paddingVertical: theme.spacing.xs,
+  },
+  topStripLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+  },
+  summaryCard: {
+    paddingVertical: theme.spacing.sm,
   },
   body: {
     flex: 1,
@@ -320,22 +335,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   bannerButton: {
+    minHeight: 44,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.warning,
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
+    justifyContent: "center",
   },
   bannerButtonLabel: {
     color: theme.colors.warning,
     fontWeight: "700",
   },
   mapWrap: {
-    height: 320,
-    borderRadius: theme.radius.xl,
+    height: 390,
+    borderRadius: 24,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: "rgba(108, 140, 197, 0.36)",
   },
   map: {
     flex: 1,

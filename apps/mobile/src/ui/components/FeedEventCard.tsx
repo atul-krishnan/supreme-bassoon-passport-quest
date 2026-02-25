@@ -16,7 +16,7 @@ export function FeedEventCard({ event }: FeedEventCardProps) {
         : theme.colors.accentCyan;
 
   return (
-    <GlassCard>
+    <GlassCard style={styles.card}>
       <Text style={[styles.actor, { color: accentColor }]} numberOfLines={1}>
         {event.actorName}
       </Text>
@@ -28,8 +28,11 @@ export function FeedEventCard({ event }: FeedEventCardProps) {
 }
 
 const styles = StyleSheet.create({
+  card: {
+    borderRadius: 16,
+  },
   actor: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
   },
   message: {

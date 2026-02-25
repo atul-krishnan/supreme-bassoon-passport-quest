@@ -332,16 +332,16 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: theme.spacing.md,
-    paddingBottom: 120,
-    gap: theme.spacing.sm,
+    paddingBottom: 128,
+    gap: theme.spacing.md,
   },
   segmentCard: {
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
   },
   segmentActive: {
-    color: theme.colors.accentGreen,
+    color: "#95EDDF",
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 16,
   },
   toolsToggle: {
     flexDirection: "row",
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   toolsToggleLabel: {
     color: theme.colors.textPrimary,
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: 18,
   },
   toolsToggleHint: {
     color: theme.colors.accentCyan,
@@ -381,9 +381,9 @@ const styles = StyleSheet.create({
   },
   requestRow: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: "rgba(106, 142, 200, 0.35)",
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.backgroundElevated,
+    backgroundColor: "rgba(15, 25, 47, 0.82)",
     padding: theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
