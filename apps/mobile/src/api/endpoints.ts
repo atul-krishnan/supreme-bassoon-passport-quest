@@ -25,6 +25,7 @@ import type {
   UserSummaryResponse,
 } from "@passport-quest/shared";
 import { apiRequest } from "./http";
+import { useReliabilityStore } from "../state/reliability";
 
 export function getNearbyQuests(params: {
   cityId: CityId;
@@ -32,10 +33,16 @@ export function getNearbyQuests(params: {
   lng: number;
   radiusM: number;
 }) {
+  const startedAtMs = Date.now();
   return apiRequest<NearbyQuestResponse>({
     method: "GET",
     path: "/quests/nearby",
     query: params,
+  }).finally(() => {
+    useReliabilityStore.getState().recordNearbyLatency(
+      params.cityId,
+      Date.now() - startedAtMs,
+    );
   });
 }
 

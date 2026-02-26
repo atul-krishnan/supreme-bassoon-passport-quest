@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import Constants from "expo-constants";
+import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
 import {
   ActivityIndicator,
@@ -11,6 +12,11 @@ import {
   Text,
   View,
 } from "react-native";
+import {
+  Manrope_400Regular,
+  Manrope_600SemiBold,
+} from "@expo-google-fonts/manrope";
+import { Sora_700Bold, Sora_800ExtraBold } from "@expo-google-fonts/sora";
 import { trackUiEvent } from "../src/analytics/events";
 import {
   getBootstrapConfig,
@@ -29,6 +35,12 @@ let hasTrackedFirstThreeCompletions = false;
 
 export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
+  const [fontsLoaded, fontError] = useFonts({
+    Sora_700Bold,
+    Sora_800ExtraBold,
+    Manrope_400Regular,
+    Manrope_600SemiBold,
+  });
   const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
   const isBootstrapped = useSessionStore((state) => state.isBootstrapped);
   const userId = useSessionStore((state) => state.userId);
@@ -39,6 +51,7 @@ export default function RootLayout() {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
   const [isProfileGateLoading, setIsProfileGateLoading] = useState(true);
+  const fontsReady = fontsLoaded || Boolean(fontError);
 
   useEffect(() => {
     initSentry();
@@ -200,21 +213,23 @@ export default function RootLayout() {
     });
   }, [activeCityId, isBootstrapped]);
 
-  if (!isBootstrapped || isProfileGateLoading) {
+  if (!fontsReady || !isBootstrapped || isProfileGateLoading) {
     return (
       <SafeAreaView
         style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
       >
-        {isBootstrapping || isProfileGateLoading ? (
+        {!fontsReady || isBootstrapping || isProfileGateLoading ? (
           <ActivityIndicator size="large" />
         ) : null}
         <View style={{ height: 12 }} />
         <Text>
-          {isBootstrapped && isProfileGateLoading
+          {!fontsReady
+            ? "Loading experience fonts..."
+            : isBootstrapped && isProfileGateLoading
             ? "Preparing your profile..."
             : isBootstrapping
-            ? "Starting guest session..."
-            : "Unable to start session."}
+              ? "Starting guest session..."
+              : "Unable to start session."}
         </Text>
         {bootstrapError ? (
           <>
@@ -250,6 +265,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="landing" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="quest/[questId]" />

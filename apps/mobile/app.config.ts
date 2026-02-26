@@ -118,6 +118,7 @@ export default ({ config }: { config: ExpoConfig }): ExpoConfig => {
       supabaseAnonKey: optional(process.env.SUPABASE_ANON_KEY),
       posthogHost: optional(process.env.POSTHOG_HOST),
       posthogApiKey: optional(process.env.POSTHOG_API_KEY),
+      appCityId: optional(process.env.APP_CITY_ID),
       googleMapsApiKey: optional(process.env.GOOGLE_MAPS_API_KEY),
       googleMapsAndroidApiKey: optional(
         process.env.GOOGLE_MAPS_ANDROID_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY,

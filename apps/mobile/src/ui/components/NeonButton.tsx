@@ -52,7 +52,7 @@ export function NeonButton({
       />
       {loading ? (
         <ActivityIndicator
-          color={primary ? "#031819" : theme.colors.textPrimary}
+          color={primary ? theme.colors.primaryActionText : theme.colors.textPrimary}
         />
       ) : null}
       <Text
@@ -79,9 +79,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   primary: {
-    backgroundColor: "#1E9D9F",
+    backgroundColor: theme.colors.primaryAction,
     borderWidth: 1,
-    borderColor: "rgba(101, 240, 216, 0.55)",
+    borderColor: "rgba(132, 255, 239, 0.58)",
     ...theme.elevation.glowGreen,
   },
   secondary: {
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     height: "48%",
   },
   primaryShine: {
-    backgroundColor: "rgba(146, 255, 235, 0.22)",
+    backgroundColor: "rgba(234, 255, 248, 0.22)",
   },
   secondaryShine: {
     backgroundColor: "rgba(119, 155, 236, 0.16)",
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   primaryLabel: {
-    color: "#ECFFFB",
+    color: theme.colors.primaryActionText,
   },
   secondaryLabel: {
     color: theme.colors.textPrimary,

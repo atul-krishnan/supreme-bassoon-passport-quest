@@ -18,7 +18,7 @@ export function QuestMiniCard({
   onStart,
   onPress,
   compact = false,
-  ctaLabel = "Start",
+  ctaLabel = "Start Plan",
 }: QuestMiniCardProps) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button">
@@ -33,14 +33,23 @@ export function QuestMiniCard({
             <Text style={styles.subtitle} numberOfLines={2}>
               {quest.subtitle}
             </Text>
-            <Text style={styles.reward}>Reward: {quest.xpReward} XP</Text>
             {quest.badgeLabel ? (
               <Text style={styles.badge}>{quest.badgeLabel}</Text>
             ) : null}
           </View>
         </View>
         <View style={{ height: theme.spacing.sm }} />
-        <NeonButton label={ctaLabel} onPress={onStart} variant="primary" />
+        <View style={styles.actionRow}>
+          <NeonButton
+            label={ctaLabel}
+            onPress={onStart}
+            variant="primary"
+            style={styles.actionButton}
+          />
+          <View style={styles.rewardPill}>
+            <Text style={styles.rewardPillText}>+{quest.xpReward} XP</Text>
+          </View>
+        </View>
       </GlassCard>
     </Pressable>
   );
@@ -79,14 +88,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  reward: {
-    color: theme.colors.accentGreen,
-    fontWeight: "700",
-    fontSize: 13,
-  },
   badge: {
     color: theme.colors.accentCyan,
     fontWeight: "600",
     fontSize: 12,
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  rewardPill: {
+    minHeight: 48,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(248, 213, 117, 0.38)",
+    backgroundColor: "rgba(73, 57, 22, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.sm,
+  },
+  rewardPillText: {
+    color: "#FBE6A3",
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: "700",
   },
 });

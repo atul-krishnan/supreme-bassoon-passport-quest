@@ -13,11 +13,14 @@
     "test:ci": "jest --runInBand --coverage"
   },
   "dependencies": {
+    "@expo-google-fonts/manrope": "^0.4.2",
+    "@expo-google-fonts/sora": "^0.4.2",
     "@passport-quest/shared": "0.1.0",
     "@sentry/react-native": "^6.22.0",
     "@supabase/supabase-js": "^2.49.4",
     "@tanstack/react-query": "^5.67.2",
     "expo": "^52.0.30",
+    "expo-font": "~13.0.1",
     "expo-linking": "~7.0.5",
     "expo-location": "~18.0.4",
     "expo-network": "~7.0.5",

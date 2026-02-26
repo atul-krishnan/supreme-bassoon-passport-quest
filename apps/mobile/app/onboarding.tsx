@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Redirect, router } from "expo-router";
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { trackUiEvent } from "../src/analytics/events";
 import { updateMyProfile } from "../src/api/endpoints";
 import { useSessionStore } from "../src/state/session";
@@ -48,6 +49,18 @@ export default function OnboardingScreen() {
     <ScreenContainer>
       <View style={styles.root}>
         <View style={styles.heroWrap}>
+          {/* Decorative travel emoji */}
+          <View style={styles.emojiRow}>
+            <Text style={styles.decorEmoji}>✈️</Text>
+            <Text style={styles.decorEmoji}>🗺️</Text>
+            <Text style={styles.decorEmoji}>🌍</Text>
+          </View>
+
+          {/* Hero icon */}
+          <View style={styles.heroIconWrap}>
+            <Ionicons name="compass-outline" size={64} color={theme.colors.accentCyan} />
+          </View>
+
           <Text style={styles.title}>Stop scrolling.{"\n"}Start doing.</Text>
           <Text style={styles.subtitle}>
             Get a plan in under 2 minutes. Start by choosing your explorer name.
@@ -55,7 +68,7 @@ export default function OnboardingScreen() {
         </View>
 
         <GlassCard style={styles.formCard}>
-          <Text style={styles.formTitle}>Set your username</Text>
+          <Text style={styles.formTitle}>👤 Set your username</Text>
           <TextInput
             value={username}
             onChangeText={(value) => {
@@ -83,7 +96,7 @@ export default function OnboardingScreen() {
           ) : null}
 
           <NeonButton
-            label="Get Started"
+            label="🚀 Get Started"
             loading={submitMutation.isPending}
             disabled={!USERNAME_PATTERN.test(normalizedUsername)}
             onPress={() => submitMutation.mutate()}
@@ -103,19 +116,40 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   heroWrap: {
-    paddingTop: theme.spacing.xxl,
+    paddingTop: theme.spacing.lg,
     gap: theme.spacing.sm,
+    alignItems: "center",
+  },
+  emojiRow: {
+    flexDirection: "row",
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  decorEmoji: {
+    fontSize: 32,
+  },
+  heroIconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(58, 215, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.sm,
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: 44,
-    lineHeight: 48,
+    fontSize: 38,
+    lineHeight: 44,
     fontWeight: "800",
+    textAlign: "center",
   },
   subtitle: {
     color: theme.colors.textSecondary,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: "center",
+    paddingHorizontal: theme.spacing.md,
   },
   formCard: {
     gap: theme.spacing.sm,

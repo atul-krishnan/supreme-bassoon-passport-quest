@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import type { CityId } from "@passport-quest/shared";
 
 export type RuntimeAppEnv = "local" | "staging" | "production";
 
@@ -16,6 +17,7 @@ export type AppEnv = {
   sentryDsn?: string;
   releaseSha?: string;
   productionSupabaseProjectRef?: string;
+  appCityId?: CityId;
 };
 
 function requireString(name: string, value: unknown): string {
@@ -77,6 +79,7 @@ const runtimeEnv: AppEnv = {
   sentryDsn: optionalString(extras.sentryDsn),
   releaseSha: optionalString(extras.releaseSha),
   productionSupabaseProjectRef: optionalString(extras.productionSupabaseProjectRef),
+  appCityId: optionalString(extras.appCityId) as CityId | undefined,
 };
 
 if (

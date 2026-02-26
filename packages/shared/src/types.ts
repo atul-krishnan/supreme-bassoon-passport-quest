@@ -1,4 +1,4 @@
-export type CityId = "blr" | "nyc";
+export type CityId = "blr" | "nyc" | "del" | "pnq";
 
 export type QuestCategory = "landmark" | "food" | "culture" | "transit";
 
@@ -113,6 +113,7 @@ export type PlanStop = {
   storySnippet: string;
   practicalDetails: string[];
   heroImageUrl?: string;
+  reason_string?: string;
 };
 
 export type PlanBundle = {
@@ -122,6 +123,8 @@ export type PlanBundle = {
   estimatedDurationMin: number;
   estimatedSpendBand: PlanBudgetBand;
   whyRecommended: string[];
+  reason_string?: string;
+  trust_signal?: string;
   stops: PlanStop[];
 };
 
@@ -300,4 +303,10 @@ export type HealthResponse = {
   environment: string;
   releaseSha: string;
   serverTime: string;
+  releaseGates?: {
+    nearbyApiP95Ms: number | null;
+    nearbyApiSampleCount: number;
+    nearbyApiTargetMs: number;
+    nearbyApiGatePassed: boolean;
+  };
 };

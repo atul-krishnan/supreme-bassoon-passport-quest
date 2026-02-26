@@ -112,6 +112,7 @@ npm run local:status
 - ADR template: `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/0000-template.md`
 - India rollout gate: `/Users/atulkrishnan/Documents/Passport Quest/docs/india-expansion-gate.md`
 - Trip context model: `/Users/atulkrishnan/Documents/Passport Quest/docs/trip-context-model.md`
+- v1 Bangalore PRD: `/Users/atulkrishnan/Documents/Passport Quest/docs/prd-v1-bangalore-decision-copilot.md`
 - v1.1/v1.2 roadmap: `/Users/atulkrishnan/Documents/Passport Quest/docs/roadmap-v1.1-v1.2.md`
 - Testing + environments + release: `/Users/atulkrishnan/Documents/Passport Quest/docs/testing-environments-and-release.md`
 - GitHub Actions secrets setup: `/Users/atulkrishnan/Documents/Passport Quest/docs/github-actions-secrets-setup.md`

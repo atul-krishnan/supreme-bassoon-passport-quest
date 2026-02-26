@@ -10,7 +10,9 @@ export const theme: ThemeTokens = {
     textPrimary: "#EFF6FF",
     textSecondary: "#AFC2E6",
     textMuted: "#7890BF",
-    accentCyan: "#3AD7FF",
+    primaryAction: "#35D5C5",
+    primaryActionText: "#062322",
+    accentCyan: "#5BE4D6",
     accentGreen: "#2EF6A8",
     accentPurple: "#8F63FF",
     warning: "#F9C74F",
@@ -18,30 +20,29 @@ export const theme: ThemeTokens = {
     success: "#4ADE80",
   },
   typography: {
-    // Swap to loaded Sora/Manrope fonts later without changing component APIs.
     display: {
       fontSize: 30,
       lineHeight: 36,
       fontWeight: "800",
-      fontFamily: "System",
+      fontFamily: "Sora_800ExtraBold",
     },
     title: {
       fontSize: 22,
       lineHeight: 28,
       fontWeight: "700",
-      fontFamily: "System",
+      fontFamily: "Sora_700Bold",
     },
     body: {
       fontSize: 16,
       lineHeight: 22,
       fontWeight: "400",
-      fontFamily: "System",
+      fontFamily: "Manrope_400Regular",
     },
     caption: {
       fontSize: 13,
       lineHeight: 18,
       fontWeight: "600",
-      fontFamily: "System",
+      fontFamily: "Manrope_600SemiBold",
     },
   },
   spacing: {

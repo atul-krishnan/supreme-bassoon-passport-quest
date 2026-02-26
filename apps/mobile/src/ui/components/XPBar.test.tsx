@@ -4,7 +4,7 @@ import { XPBar } from "./XPBar";
 describe("XPBar", () => {
   it("renders rounded values and label", () => {
     const { getByText } = render(<XPBar value={149.4} max={300} label="Journey" />);
-    expect(getByText("Journey")).toBeTruthy();
+    expect(getByText("⭐ Journey")).toBeTruthy();
     expect(getByText("149/300")).toBeTruthy();
   });
 

@@ -7,6 +7,8 @@ export type ColorTokens = {
   textPrimary: string;
   textSecondary: string;
   textMuted: string;
+  primaryAction: string;
+  primaryActionText: string;
   accentCyan: string;
   accentGreen: string;
   accentPurple: string;

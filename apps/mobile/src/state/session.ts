@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "../config/env";
+import { APP_CITY_ID } from "../config/city";
 import type { CityId } from "@passport-quest/shared";
 
 type SessionState = {
@@ -35,7 +36,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   accessToken: null,
   refreshToken: null,
   userId: null,
-  activeCityId: "blr",
+  activeCityId: APP_CITY_ID,
   needsOnboarding: false,
   isBootstrapped: false,
   setCity: (activeCityId) => set({ activeCityId }),

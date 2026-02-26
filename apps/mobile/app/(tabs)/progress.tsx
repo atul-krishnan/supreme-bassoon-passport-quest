@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { getSavedPlans, getUserBadges, getUserSummary } from "../../src/api/endpoints";
 import { theme } from "../../src/theme";
 import {
@@ -44,8 +45,17 @@ export default function ProgressScreen() {
 
         {summary ? (
           <GlassCard style={styles.heroCard}>
-            <Text style={styles.heroName}>{summary.user.username}</Text>
-            <Text style={styles.heroSubtitle}>Explorer level {summary.stats.level}</Text>
+            <View style={styles.heroHead}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>
+                  {summary.user.username.slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.heroName}>{summary.user.username}</Text>
+                <Text style={styles.heroSubtitle}>🏅 Explorer level {summary.stats.level}</Text>
+              </View>
+            </View>
             <View style={{ height: theme.spacing.sm }} />
             <XPBar
               value={summary.stats.xpTotal}
@@ -54,14 +64,17 @@ export default function ProgressScreen() {
             />
             <View style={styles.metricRow}>
               <View style={styles.metricItem}>
+                <Text style={styles.metricEmoji}>🎯</Text>
                 <Text style={styles.metricValue}>{summary.stats.questsCompleted}</Text>
                 <Text style={styles.metricLabel}>Quests</Text>
               </View>
               <View style={styles.metricItem}>
+                <Text style={styles.metricEmoji}>🔥</Text>
                 <Text style={styles.metricValue}>{summary.stats.streakDays}</Text>
                 <Text style={styles.metricLabel}>Streak</Text>
               </View>
               <View style={styles.metricItem}>
+                <Text style={styles.metricEmoji}>💾</Text>
                 <Text style={styles.metricValue}>{savedPlansQuery.data?.items.length ?? 0}</Text>
                 <Text style={styles.metricLabel}>Saved</Text>
               </View>
@@ -70,7 +83,7 @@ export default function ProgressScreen() {
         ) : null}
 
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Badges</Text>
+          <Text style={styles.sectionTitle}>🏆 Badges</Text>
           <Text style={styles.sectionMeta}>{unlockedBadges.length}/{badges.length}</Text>
         </View>
         {badgesQuery.isLoading ? <LoadingShimmer label="Loading badges..." /> : null}
@@ -79,6 +92,7 @@ export default function ProgressScreen() {
           <EmptyState
             title="No badges yet"
             description="Complete plans and quests to unlock badges."
+            icon="ribbon-outline"
           />
         ) : null}
 
@@ -88,11 +102,18 @@ export default function ProgressScreen() {
               key={badge.key}
               style={[styles.badgeCard, !badge.unlocked ? styles.badgeLocked : undefined]}
             >
+              <View style={styles.badgeIconWrap}>
+                <Ionicons
+                  name={badge.unlocked ? "trophy" : "lock-closed"}
+                  size={28}
+                  color={badge.unlocked ? theme.colors.accentGreen : theme.colors.textMuted}
+                />
+              </View>
               <Text style={styles.badgeName} numberOfLines={2}>
                 {badge.name}
               </Text>
-              <Text style={styles.badgeState}>
-                {badge.unlocked ? "Unlocked" : "Locked"}
+              <Text style={[styles.badgeState, badge.unlocked ? styles.badgeUnlockedState : undefined]}>
+                {badge.unlocked ? "✅ Unlocked" : "🔒 Locked"}
               </Text>
             </GlassCard>
           ))}
@@ -116,16 +137,37 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: theme.spacing.xs,
   },
+  heroHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  avatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#213565",
+    borderWidth: 2,
+    borderColor: theme.colors.accentCyan,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: theme.colors.accentCyan,
+    fontSize: 22,
+    fontWeight: "800",
+  },
   heroName: {
     color: theme.colors.textPrimary,
-    fontSize: 26,
-    lineHeight: 30,
+    fontSize: 24,
+    lineHeight: 28,
     fontWeight: "700",
   },
   heroSubtitle: {
     color: theme.colors.textSecondary,
     fontSize: 14,
     lineHeight: 18,
+    marginTop: 2,
   },
   metricRow: {
     marginTop: theme.spacing.sm,
@@ -135,7 +177,7 @@ const styles = StyleSheet.create({
   },
   metricItem: {
     flex: 1,
-    minHeight: 72,
+    minHeight: 80,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(108, 144, 210, 0.26)",
@@ -143,11 +185,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
+    paddingVertical: theme.spacing.xs,
+  },
+  metricEmoji: {
+    fontSize: 18,
+    marginBottom: 2,
   },
   metricValue: {
     color: theme.colors.textPrimary,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: "700",
   },
   metricLabel: {
@@ -162,8 +209,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: "700",
   },
   sectionMeta: {
@@ -178,21 +225,37 @@ const styles = StyleSheet.create({
   },
   badgeCard: {
     width: "47%",
-    minHeight: 116,
+    minHeight: 130,
     justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: theme.spacing.md,
   },
   badgeLocked: {
-    opacity: 0.42,
+    opacity: 0.5,
+  },
+  badgeIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(30, 50, 90, 0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.xs,
   },
   badgeName: {
     color: theme.colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
+    textAlign: "center",
   },
   badgeState: {
     color: theme.colors.textMuted,
     fontSize: 12,
     lineHeight: 16,
+    marginTop: 4,
+  },
+  badgeUnlockedState: {
+    color: theme.colors.accentGreen,
   },
 });

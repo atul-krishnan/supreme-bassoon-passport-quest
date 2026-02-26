@@ -14,6 +14,17 @@ type PlanCardProps = {
   saving?: boolean;
 };
 
+function resolveTrustSignal(plan: PlanBundle): string {
+  if (typeof plan.trust_signal === "string" && plan.trust_signal.trim().length > 0) {
+    return plan.trust_signal.trim();
+  }
+  if (typeof plan.reason_string === "string" && plan.reason_string.trim().length > 0) {
+    return plan.reason_string.trim();
+  }
+  const fallback = plan.whyRecommended.find((reason) => reason.trim().length > 0);
+  return fallback ?? "Recommended because it's a local favorite";
+}
+
 export function PlanCard({
   plan,
   onOpen,
@@ -23,10 +34,16 @@ export function PlanCard({
   saving = false,
 }: PlanCardProps) {
   const heroImage = plan.stops[0]?.heroImageUrl;
+  const trustSignal = resolveTrustSignal(plan);
 
   return (
     <Pressable accessibilityRole="button" onPress={onOpen}>
       <GlassCard style={styles.card}>
+        <Text style={styles.trustLabel}>Trust Signal</Text>
+        <View style={styles.trustPill}>
+          <Text style={styles.trustText}>✨ {trustSignal}</Text>
+        </View>
+
         <View style={styles.heroWrap}>
           {heroImage ? (
             <Image source={{ uri: heroImage }} style={styles.heroImage} />
@@ -55,7 +72,7 @@ export function PlanCard({
         <ReasonList reasons={plan.whyRecommended} maxItems={2} style={styles.reasons} />
 
         <View style={styles.actionRow}>
-          <NeonButton label="Find Plans" onPress={onStart} style={styles.startButton} />
+          <NeonButton label="Start Plan" onPress={onStart} style={styles.startButton} />
           <NeonButton
             label={saving ? "Saving..." : "Save"}
             variant="secondary"
@@ -80,6 +97,28 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     padding: theme.spacing.sm,
     borderRadius: 18,
+  },
+  trustLabel: {
+    color: "#A9EDE3",
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "700",
+  },
+  trustPill: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(132, 240, 228, 0.42)",
+    backgroundColor: "rgba(39, 106, 101, 0.32)",
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+    marginTop: -4,
+  },
+  trustText: {
+    color: "#DDFEF8",
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
   },
   heroWrap: {
     borderRadius: theme.radius.md,

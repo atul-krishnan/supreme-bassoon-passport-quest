@@ -14,8 +14,8 @@ describe("QuestMiniCard", () => {
   it("renders quest content", () => {
     const { getByText } = render(<QuestMiniCard quest={quest} />);
     expect(getByText("Cubbon Park Morning Walk")).toBeTruthy();
-    expect(getByText("Reward: 120 XP")).toBeTruthy();
-    expect(getByText("Start")).toBeTruthy();
+    expect(getByText("+120 XP")).toBeTruthy();
+    expect(getByText("Start Plan")).toBeTruthy();
   });
 
   it("triggers press handlers", () => {
@@ -26,7 +26,7 @@ describe("QuestMiniCard", () => {
     );
 
     fireEvent.press(getByText("Cubbon Park Morning Walk"));
-    fireEvent.press(getByText("Start"));
+    fireEvent.press(getByText("Start Plan"));
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(onStart).toHaveBeenCalledTimes(1);

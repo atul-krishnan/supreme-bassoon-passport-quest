@@ -1,12 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import type {
   PlanBudgetBand,
   TripContextStartRequest,
@@ -27,69 +19,31 @@ type PlanContextSheetProps = {
   onSubmit: (payload: PlanContextInput) => void;
 };
 
-type Option<T extends string> = {
+type CompanionOption = {
   label: string;
-  value: T;
+  value: TripContextType;
+  emoji: string;
 };
 
-const CONTEXT_OPTIONS: Option<TripContextType>[] = [
-  { label: "Solo", value: "solo" },
-  { label: "Couple", value: "couple" },
-  { label: "Friends", value: "friends" },
-  { label: "Family", value: "family" },
+const COMPANION_OPTIONS: CompanionOption[] = [
+  { label: "Solo", value: "solo", emoji: "🧍" },
+  { label: "Couple", value: "couple", emoji: "💑" },
+  { label: "Friends", value: "friends", emoji: "👯" },
+  { label: "Family", value: "family", emoji: "👨‍👩‍👧" },
 ];
 
-const TIME_OPTIONS = [60, 120, 180, 240];
+function normalizeBudget(value: unknown): PlanBudgetBand {
+  if (value === "low" || value === "high") {
+    return value;
+  }
+  return "medium";
+}
 
-const BUDGET_OPTIONS: Option<PlanBudgetBand>[] = [
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" },
-];
-
-const PACE_OPTIONS: Option<TripPace>[] = [
-  { label: "Relaxed", value: "relaxed" },
-  { label: "Balanced", value: "balanced" },
-  { label: "Active", value: "active" },
-];
-
-const VIBE_OPTIONS = [
-  "chill",
-  "romantic",
-  "foodie",
-  "outdoors",
-  "culture",
-  "nightlife",
-];
-
-function ToggleGroup<T extends string>(props: {
-  label: string;
-  options: Option<T>[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <View style={styles.group}>
-      <Text style={styles.groupLabel}>{props.label}</Text>
-      <View style={styles.optionWrap}>
-        {props.options.map((option) => {
-          const isActive = option.value === props.value;
-          return (
-            <Pressable
-              key={option.value}
-              accessibilityRole="button"
-              onPress={() => props.onChange(option.value)}
-              style={[styles.optionChip, isActive ? styles.optionChipActive : undefined]}
-            >
-              <Text style={[styles.optionText, isActive ? styles.optionTextActive : undefined]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
+function normalizePace(value: unknown): TripPace {
+  if (value === "relaxed" || value === "active") {
+    return value;
+  }
+  return "balanced";
 }
 
 export function PlanContextSheet({
@@ -99,51 +53,29 @@ export function PlanContextSheet({
   onClose,
   onSubmit,
 }: PlanContextSheetProps) {
-  const [contextType, setContextType] = useState<TripContextType>("solo");
-  const [timeBudgetMin, setTimeBudgetMin] = useState(120);
-  const [budget, setBudget] = useState<PlanBudgetBand>("medium");
-  const [pace, setPace] = useState<TripPace>("balanced");
-  const [vibeTags, setVibeTags] = useState<string[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const defaultContextType: TripContextType = initialValue?.contextType ?? "solo";
+  const defaultTimeBudgetMin =
+    typeof initialValue?.timeBudgetMin === "number"
+      ? Math.min(720, Math.max(30, Math.floor(initialValue.timeBudgetMin)))
+      : 120;
+  const defaultBudget = normalizeBudget(initialValue?.budget);
+  const defaultPace = normalizePace(initialValue?.pace);
+  const defaultVibeTags = Array.isArray(initialValue?.vibeTags)
+    ? initialValue.vibeTags
+    : [];
+  const defaultConstraints =
+    initialValue?.constraints && typeof initialValue.constraints === "object"
+      ? initialValue.constraints
+      : {};
 
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    setContextType(initialValue?.contextType ?? "solo");
-    setTimeBudgetMin(initialValue?.timeBudgetMin ?? 120);
-    setBudget(initialValue?.budget ?? "medium");
-    setPace(initialValue?.pace ?? "balanced");
-    setVibeTags(initialValue?.vibeTags ?? []);
-    setErrorMessage(null);
-  }, [initialValue, visible]);
-
-  const timeOptions = useMemo(
-    () => TIME_OPTIONS.map((value) => ({ label: `${value} min`, value })),
-    [],
-  );
-
-  const toggleVibe = (value: string) => {
-    setVibeTags((current) =>
-      current.includes(value)
-        ? current.filter((item) => item !== value)
-        : [...current, value],
-    );
-  };
-
-  const submit = () => {
-    if (timeBudgetMin < 30 || timeBudgetMin > 720) {
-      setErrorMessage("Time budget must be between 30 and 720 minutes.");
-      return;
-    }
-
+  const submit = (contextType: TripContextType) => {
     onSubmit({
       contextType,
-      timeBudgetMin,
-      budget,
-      pace,
-      vibeTags,
-      constraints: {},
+      timeBudgetMin: defaultTimeBudgetMin,
+      budget: defaultBudget,
+      pace: defaultPace,
+      vibeTags: defaultVibeTags,
+      constraints: defaultConstraints,
     });
   };
 
@@ -158,82 +90,30 @@ export function PlanContextSheet({
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <GlassCard style={styles.sheet}>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Plan context</Text>
-            <Pressable accessibilityRole="button" onPress={onClose}>
-              <Text style={styles.closeLabel}>Close</Text>
-            </Pressable>
+          <View style={styles.handle} />
+          <Text style={styles.title}>Who's joining you?</Text>
+          <Text style={styles.subtitle}>Pick one. I'll handle the rest.</Text>
+          <View style={styles.optionGrid}>
+            {COMPANION_OPTIONS.map((option) => (
+              <NeonButton
+                key={option.value}
+                label={`${option.emoji} ${option.label}`}
+                variant={option.value === defaultContextType ? "primary" : "secondary"}
+                onPress={() => submit(option.value)}
+                loading={loading && option.value === defaultContextType}
+                disabled={loading}
+                style={styles.optionButton}
+              />
+            ))}
           </View>
-
-          <ScrollView contentContainerStyle={styles.content}>
-            <ToggleGroup
-              label="Who are you going with?"
-              options={CONTEXT_OPTIONS}
-              value={contextType}
-              onChange={setContextType}
-            />
-
-            <View style={styles.group}>
-              <Text style={styles.groupLabel}>How much time do you have?</Text>
-              <View style={styles.optionWrap}>
-                {timeOptions.map((option) => {
-                  const isActive = option.value === timeBudgetMin;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      accessibilityRole="button"
-                      onPress={() => setTimeBudgetMin(option.value)}
-                      style={[styles.optionChip, isActive ? styles.optionChipActive : undefined]}
-                    >
-                      <Text
-                        style={[styles.optionText, isActive ? styles.optionTextActive : undefined]}
-                      >
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <ToggleGroup
-              label="Budget comfort"
-              options={BUDGET_OPTIONS}
-              value={budget}
-              onChange={setBudget}
-            />
-
-            <ToggleGroup label="Pace" options={PACE_OPTIONS} value={pace} onChange={setPace} />
-
-            <View style={styles.group}>
-              <Text style={styles.groupLabel}>Vibe (optional)</Text>
-              <View style={styles.optionWrap}>
-                {VIBE_OPTIONS.map((vibe) => {
-                  const isActive = vibeTags.includes(vibe);
-                  return (
-                    <Pressable
-                      key={vibe}
-                      accessibilityRole="button"
-                      onPress={() => toggleVibe(vibe)}
-                      style={[styles.optionChip, isActive ? styles.optionChipActive : undefined]}
-                    >
-                      <Text
-                        style={[styles.optionText, isActive ? styles.optionTextActive : undefined]}
-                      >
-                        {vibe}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          </ScrollView>
-
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-          <View style={styles.footer}>
-            <NeonButton label="Generate Plans" loading={loading} onPress={submit} />
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onClose}
+            disabled={loading}
+            style={styles.dismiss}
+          >
+            <Text style={styles.dismissLabel}>Not now</Text>
+          </Pressable>
         </GlassCard>
       </View>
     </Modal>
@@ -252,76 +132,50 @@ const styles = StyleSheet.create({
   sheet: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    maxHeight: "88%",
-    paddingBottom: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+    gap: theme.spacing.sm,
   },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: theme.spacing.sm,
+  handle: {
+    alignSelf: "center",
+    width: 56,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(168, 186, 224, 0.48)",
   },
-  sheetTitle: {
+  title: {
     color: theme.colors.textPrimary,
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "700",
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: "800",
+    textAlign: "center",
+    marginTop: theme.spacing.xs,
   },
-  closeLabel: {
-    color: theme.colors.accentCyan,
-    fontSize: 14,
-    fontWeight: "700",
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.xs,
-  },
-  content: {
-    gap: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-  },
-  group: {
-    gap: theme.spacing.xs,
-  },
-  groupLabel: {
+  subtitle: {
     color: theme.colors.textSecondary,
+    textAlign: "center",
     fontSize: 14,
     lineHeight: 18,
-    fontWeight: "600",
   },
-  optionWrap: {
+  optionGrid: {
+    marginTop: theme.spacing.sm,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: theme.spacing.xs,
   },
-  optionChip: {
-    minHeight: 44,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.backgroundElevated,
+  optionButton: {
+    width: "48%",
+    minHeight: 64,
+    borderRadius: theme.radius.lg,
+  },
+  dismiss: {
+    alignSelf: "center",
     paddingHorizontal: theme.spacing.sm,
-    justifyContent: "center",
+    paddingVertical: theme.spacing.xs,
   },
-  optionChipActive: {
-    borderColor: theme.colors.accentCyan,
-    backgroundColor: "#0F2A49",
-  },
-  optionText: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "600",
-    textTransform: "capitalize",
-  },
-  optionTextActive: {
-    color: theme.colors.textPrimary,
-  },
-  errorText: {
-    color: theme.colors.warning,
+  dismissLabel: {
+    color: theme.colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
-    marginTop: theme.spacing.xs,
-  },
-  footer: {
-    marginTop: theme.spacing.md,
+    fontWeight: "600",
   },
 });

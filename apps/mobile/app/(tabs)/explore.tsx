@@ -4,10 +4,11 @@ import * as Location from "expo-location";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
+import { Ionicons } from "@expo/vector-icons";
 import type { Quest } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { getNearbyQuests, getUserSummary } from "../../src/api/endpoints";
-import { getCityAnchor } from "../../src/config/city";
+import { getCityAnchor, isCityLive } from "../../src/config/city";
 import { env } from "../../src/config/env";
 import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { useSessionStore } from "../../src/state/session";
@@ -89,6 +90,7 @@ function openQuestDetail(quest: Quest) {
 export default function ExploreScreen() {
   const activeCityId = useSessionStore((state) => state.activeCityId);
   const cityAnchor = getCityAnchor(activeCityId);
+  const citySupportsLiveApi = isCityLive(activeCityId);
   const locationOverride = useLocationOverrideStore((state) => state.override);
   const setLocationOverride = useLocationOverrideStore((state) => state.setOverride);
   const [coords, setCoords] = useState<{
@@ -145,7 +147,7 @@ export default function ExploreScreen() {
 
   const nearbyQuery = useQuery({
     queryKey: ["nearby-quests", activeCityId, coords?.lat, coords?.lng, radiusM],
-    enabled: coords !== null,
+    enabled: coords !== null && citySupportsLiveApi,
     queryFn: () =>
       getNearbyQuests({
         cityId: activeCityId,
@@ -194,9 +196,15 @@ export default function ExploreScreen() {
   return (
     <ScreenContainer padded={false}>
       <View style={styles.header}>
-        <TopBar title="Explore" subtitle={cityAnchor.label} />
+        <TopBar
+          title="Explore"
+          subtitle={`📍 ${cityAnchor.label}`}
+        />
         <GlassCard style={styles.topStrip}>
-          <Text style={styles.topStripLabel}>Selected profile: vibe + context aware</Text>
+          <View style={styles.topStripRow}>
+            <Ionicons name="compass-outline" size={16} color={theme.colors.accentCyan} />
+            <Text style={styles.topStripLabel}>Selected profile: vibe + context aware</Text>
+          </View>
         </GlassCard>
         <GlassCard style={styles.summaryCard}>
           <XPBar
@@ -208,10 +216,21 @@ export default function ExploreScreen() {
       </View>
 
       <View style={styles.body}>
+        {!citySupportsLiveApi ? (
+          <GlassCard style={styles.rolloutCard}>
+            <Text style={styles.rolloutTitle}>
+              Nearby data is rolling out in {cityAnchor.label}
+            </Text>
+            <Text style={styles.rolloutBody}>
+              Use Home for assistant picks while map discovery comes online.
+            </Text>
+          </GlassCard>
+        ) : null}
+
         {isFarFromSelectedCity ? (
           <GlassCard style={styles.bannerCard}>
             <Text style={styles.bannerText}>
-              You’re far from {cityAnchor.label}. Enable test location to validate explore flows.
+              ⚠️ You're far from {cityAnchor.label}. Enable test location to validate explore flows.
             </Text>
             <View style={{ height: theme.spacing.xs }} />
             <Pressable
@@ -220,7 +239,7 @@ export default function ExploreScreen() {
               style={styles.bannerButton}
             >
               <Text style={styles.bannerButtonLabel}>
-                Use {cityAnchor.label} test location
+                📍 Use {cityAnchor.label} test location
               </Text>
             </Pressable>
           </GlassCard>
@@ -229,9 +248,10 @@ export default function ExploreScreen() {
         <View style={styles.mapWrap}>
           {isAndroidMapKeyMissing ? (
             <View style={styles.mapFallback}>
+              <Ionicons name="map-outline" size={48} color={theme.colors.textMuted} />
               <Text style={styles.mapFallbackTitle}>Map setup required</Text>
               <Text style={styles.mapFallbackBody}>
-                Add `GOOGLE_MAPS_ANDROID_API_KEY` (or `GOOGLE_MAPS_API_KEY`) in `apps/mobile/.env`, then rebuild Android.
+                Add `GOOGLE_MAPS_ANDROID_API_KEY` in `apps/mobile/.env`, then rebuild Android.
               </Text>
             </View>
           ) : (
@@ -265,16 +285,16 @@ export default function ExploreScreen() {
           )}
         </View>
 
-        {nearbyQuery.isLoading ? (
+        {citySupportsLiveApi && nearbyQuery.isLoading ? (
           <LoadingShimmer label="Finding nearby experiences..." />
         ) : null}
-        {nearbyQuery.error ? (
+        {citySupportsLiveApi && nearbyQuery.error ? (
           <InlineError
             message={`Could not load nearby experiences. ${String((nearbyQuery.error as Error).message)}`}
           />
         ) : null}
 
-        {featuredQuest ? (
+        {citySupportsLiveApi && featuredQuest ? (
           <QuestMiniCard
             quest={{
               id: featuredQuest.id,
@@ -290,10 +310,17 @@ export default function ExploreScreen() {
             onPress={() => openQuestDetail(featuredQuest)}
             onStart={() => openQuestDetail(featuredQuest)}
           />
-        ) : nearbyQuery.isSuccess ? (
+        ) : citySupportsLiveApi && nearbyQuery.isSuccess ? (
           <EmptyState
             title="No experiences nearby"
             description="Move around or use the test location."
+            icon="location-outline"
+          />
+        ) : !citySupportsLiveApi ? (
+          <EmptyState
+            title="Assistant mode active"
+            description={`Hero plans are available for ${cityAnchor.label} while nearby content is being staged.`}
+            icon="sparkles-outline"
           />
         ) : null}
       </View>
@@ -309,6 +336,11 @@ const styles = StyleSheet.create({
   },
   topStrip: {
     paddingVertical: theme.spacing.xs,
+  },
+  topStripRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   topStripLabel: {
     color: theme.colors.textMuted,
@@ -327,6 +359,16 @@ const styles = StyleSheet.create({
   },
   bannerCard: {
     paddingVertical: theme.spacing.sm,
+  },
+  rolloutCard: {
+    gap: theme.spacing.xs,
+  },
+  rolloutTitle: {
+    color: theme.colors.textPrimary,
+    fontWeight: "700",
+  },
+  rolloutBody: {
+    color: theme.colors.textSecondary,
   },
   bannerText: {
     color: theme.colors.warning,

@@ -5,8 +5,9 @@ import { errorResponse, jsonResponse } from "../_shared/http.ts";
 import { requireAuthUser } from "../_shared/auth.ts";
 
 type DbClient = ReturnType<typeof createClient>;
+type CityId = "blr" | "nyc" | "del" | "pnq";
 
-const ALLOWED_CITY_IDS = new Set(["blr", "nyc"]);
+const ALLOWED_CITY_IDS = new Set<CityId>(["blr", "nyc", "del", "pnq"]);
 const ALLOWED_FRIEND_REQUEST_STATUSES = new Set([
   "pending",
   "accepted",
@@ -33,10 +34,15 @@ const ALLOWED_TRIP_END_STATUSES = new Set(["completed", "cancelled"]);
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,32}$/;
 const RELEASE_SHA = (Deno.env.get("RELEASE_SHA") ?? "dev-local").trim() || "dev-local";
 const APP_ENV = (Deno.env.get("APP_ENV") ?? "local").trim() || "local";
-const CITY_ANCHORS: Record<"blr" | "nyc", { lat: number; lng: number }> = {
+const CITY_ANCHORS: Record<CityId, { lat: number; lng: number }> = {
   blr: { lat: 12.9763, lng: 77.5929 },
+  del: { lat: 28.6139, lng: 77.2090 },
+  pnq: { lat: 18.5204, lng: 73.8567 },
   nyc: { lat: 40.7536, lng: -73.9832 },
 };
+const MAX_NEARBY_RADIUS_M = 2400;
+const MAX_NEARBY_RESULTS = 24;
+const NEARBY_LATENCY_TARGET_MS = 800;
 
 function withMetaHeaders(response: Response, requestId: string): Response {
   const headers = new Headers(response.headers);
@@ -111,12 +117,12 @@ function normalizeRoute(pathname: string): string {
   return `/${routeSegments.join("/")}`;
 }
 
-function parseCityId(searchParams: URLSearchParams): "blr" | "nyc" {
+function parseCityId(searchParams: URLSearchParams): CityId {
   const value = (searchParams.get("cityId") ?? "blr").toLowerCase();
   if (!ALLOWED_CITY_IDS.has(value)) {
-    throw new Error("cityId must be one of: blr, nyc");
+    throw new Error("cityId must be one of: blr, nyc, del, pnq");
   }
-  return value as "blr" | "nyc";
+  return value as CityId;
 }
 
 function parseFriendRequestStatus(searchParams: URLSearchParams) {
@@ -127,7 +133,7 @@ function parseFriendRequestStatus(searchParams: URLSearchParams) {
   return status;
 }
 
-function parseCityIdFromValue(value: unknown): "blr" | "nyc" | null {
+function parseCityIdFromValue(value: unknown): CityId | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -135,7 +141,7 @@ function parseCityIdFromValue(value: unknown): "blr" | "nyc" | null {
   if (!ALLOWED_CITY_IDS.has(normalized)) {
     return null;
   }
-  return normalized as "blr" | "nyc";
+  return normalized as CityId;
 }
 
 function clampInt(value: number, min: number, max: number) {
@@ -291,12 +297,69 @@ async function readJsonBody(req: Request): Promise<Record<string, unknown>> {
   }
 }
 
-async function handleHealth(): Promise<Response> {
+function computeP95(samples: number[]): number | null {
+  if (samples.length === 0) {
+    return null;
+  }
+
+  const sorted = [...samples].sort((a, b) => a - b);
+  const index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
+  const value = sorted[index];
+  return Number.isFinite(value) ? Math.round(value) : null;
+}
+
+async function readNearbyReleaseGate(adminDb: DbClient | null) {
+  if (!adminDb) {
+    return {
+      nearbyApiP95Ms: null,
+      nearbyApiSampleCount: 0,
+      nearbyApiTargetMs: NEARBY_LATENCY_TARGET_MS,
+      nearbyApiGatePassed: true,
+    };
+  }
+
+  const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await adminDb
+    .from("api_request_metrics")
+    .select("latency_ms")
+    .eq("route", "/quests/nearby")
+    .eq("method", "GET")
+    .gte("created_at", windowStart)
+    .order("created_at", { ascending: false })
+    .limit(1200);
+
+  if (error) {
+    console.error(`[health_release_gate] ${error.message}`);
+    return {
+      nearbyApiP95Ms: null,
+      nearbyApiSampleCount: 0,
+      nearbyApiTargetMs: NEARBY_LATENCY_TARGET_MS,
+      nearbyApiGatePassed: true,
+    };
+  }
+
+  const latencies = (data ?? [])
+    .map((row) => Number((row as Record<string, unknown>).latency_ms))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  const nearbyApiP95Ms = computeP95(latencies);
+
+  return {
+    nearbyApiP95Ms,
+    nearbyApiSampleCount: latencies.length,
+    nearbyApiTargetMs: NEARBY_LATENCY_TARGET_MS,
+    nearbyApiGatePassed:
+      nearbyApiP95Ms === null ? true : nearbyApiP95Ms <= NEARBY_LATENCY_TARGET_MS,
+  };
+}
+
+async function handleHealth(adminDb: DbClient | null): Promise<Response> {
+  const releaseGates = await readNearbyReleaseGate(adminDb);
   return jsonResponse({
     status: "ok",
     environment: APP_ENV,
     releaseSha: RELEASE_SHA,
     serverTime: new Date().toISOString(),
+    releaseGates,
   });
 }
 
@@ -318,32 +381,47 @@ async function handleNearby(
     return errorResponse(400, "radiusM must be a positive number");
   }
 
+  const boundedRadiusM = clampInt(
+    Math.floor(radiusM),
+    200,
+    MAX_NEARBY_RADIUS_M,
+  );
+  const nearbyStartedAt = performance.now();
   const { data, error } = await db.rpc("get_nearby_quests", {
     p_city_id: cityId,
     p_lat: lat,
     p_lng: lng,
-    p_radius_m: Math.min(5000, Math.floor(radiusM)),
+    p_radius_m: boundedRadiusM,
   });
+  const nearbyLatencyMs = performance.now() - nearbyStartedAt;
 
   if (error) {
     return errorResponse(500, error.message);
   }
 
+  if (nearbyLatencyMs > NEARBY_LATENCY_TARGET_MS) {
+    console.warn(
+      `[nearby] slow response city=${cityId} radiusM=${boundedRadiusM} latencyMs=${nearbyLatencyMs.toFixed(1)}`,
+    );
+  }
+
   return jsonResponse({
     cityId,
     generatedAt: new Date().toISOString(),
-    quests: (data ?? []).map((row: Record<string, unknown>) => ({
-      id: row.id,
-      cityId: row.city_id,
-      title: row.title,
-      description: row.description,
-      category: row.category,
-      geofence: row.geofence,
-      xpReward: row.xp_reward,
-      badgeKey: row.badge_key ?? undefined,
-      activeFrom: row.active_from,
-      activeTo: row.active_to ?? undefined,
-    })),
+    quests: (data ?? [])
+      .slice(0, MAX_NEARBY_RESULTS)
+      .map((row: Record<string, unknown>) => ({
+        id: row.id,
+        cityId: row.city_id,
+        title: row.title,
+        description: row.description,
+        category: row.category,
+        geofence: row.geofence,
+        xpReward: row.xp_reward,
+        badgeKey: row.badge_key ?? undefined,
+        activeFrom: row.active_from,
+        activeTo: row.active_to ?? undefined,
+      })),
   });
 }
 
@@ -396,7 +474,7 @@ async function handleComplete(
 type TripContextRow = {
   id: string;
   user_id: string;
-  city_id: "blr" | "nyc";
+  city_id: CityId;
   context_type: "solo" | "couple" | "family" | "friends";
   time_budget_min: number;
   budget: "low" | "medium" | "high";
@@ -572,7 +650,7 @@ function buildWhyRecommended(
   } else if (quest.category === "culture") {
     reasons.push("High-quality local culture experience");
   } else {
-    reasons.push("Popular Bangalore activity for this context");
+    reasons.push("Popular local activity for this context");
   }
 
   return reasons.slice(0, 4);
@@ -611,7 +689,7 @@ async function handleTripContextStart(
       : {};
 
   if (!cityId) {
-    return errorResponse(400, "cityId must be one of: blr, nyc");
+    return errorResponse(400, "cityId must be one of: blr, nyc, del, pnq");
   }
   if (!ALLOWED_TRIP_CONTEXT_TYPES.has(contextType)) {
     return errorResponse(400, "contextType must be one of: solo, couple, family, friends");
@@ -912,6 +990,8 @@ async function handleRecommendedPlans(
         ? ["Stops are relatively close for easier travel"]
         : []),
     ]);
+    const reasonString =
+      whyRecommended[0] ?? "Curated for your trip context right now";
 
     return {
       planId: `${context.id}:${seed.quest.id}:${index + 1}`,
@@ -923,6 +1003,8 @@ async function handleRecommendedPlans(
       estimatedDurationMin: clampInt(totalDuration, 30, 360),
       estimatedSpendBand,
       whyRecommended,
+      reason_string: reasonString,
+      trust_signal: reasonString,
       stops: selectedStops.map((candidate, stopIndex) => {
         const practicalDetails =
           candidate.tags.practical_details_json.length > 0
@@ -942,6 +1024,10 @@ async function handleRecommendedPlans(
             candidate.quest.description,
           practicalDetails,
           heroImageUrl: candidate.tags.hero_image_url ?? undefined,
+          reason_string:
+            stopIndex === 0
+              ? reasonString
+              : `Pairs well with ${seed.quest.title} for a smooth route`,
         };
       }),
     };
@@ -980,6 +1066,7 @@ async function handleRecommendedPlans(
 
   if (plans.length === 0 && rankedCandidates.length > 0) {
     const fallback = rankedCandidates[0];
+    const fallbackReason = "Best available match for your current context";
     plans.push({
       planId: `${context.id}:${fallback.quest.id}:fallback`,
       title: makePlanTitle(context.context_type, fallback.quest.title),
@@ -990,6 +1077,8 @@ async function handleRecommendedPlans(
         "Limited matching options right now",
         "Showing the best available single-stop plan",
       ]),
+      reason_string: fallbackReason,
+      trust_signal: fallbackReason,
       stops: [
         {
           questId: fallback.quest.id,
@@ -1003,6 +1092,7 @@ async function handleRecommendedPlans(
               ? fallback.tags.practical_details_json.slice(0, 3)
               : ["Best available option for the selected context"],
           heroImageUrl: fallback.tags.hero_image_url ?? undefined,
+          reason_string: fallbackReason,
         },
       ],
     });
@@ -1340,7 +1430,7 @@ async function handlePatchMyProfile(
   const updatePayload: {
     username?: string;
     avatar_url?: string | null;
-    home_city_id?: "blr" | "nyc";
+    home_city_id?: CityId;
   } = {};
 
   if (body.username !== undefined) {
@@ -1369,9 +1459,9 @@ async function handlePatchMyProfile(
       typeof body.homeCityId !== "string" ||
       !ALLOWED_CITY_IDS.has(body.homeCityId)
     ) {
-      return errorResponse(400, "homeCityId must be one of: blr, nyc");
+      return errorResponse(400, "homeCityId must be one of: blr, nyc, del, pnq");
     }
-    updatePayload.home_city_id = body.homeCityId as "blr" | "nyc";
+    updatePayload.home_city_id = body.homeCityId as CityId;
   }
 
   if (Object.keys(updatePayload).length === 0) {
@@ -1801,7 +1891,7 @@ serve(async (req: Request) => {
     }
 
     if (req.method === "GET" && route === "/health") {
-      return finalize(await handleHealth(), user.id);
+      return finalize(await handleHealth(adminDb), user.id);
     }
 
     return finalize(

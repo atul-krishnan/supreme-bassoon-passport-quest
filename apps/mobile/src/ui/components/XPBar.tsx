@@ -14,13 +14,15 @@ export function XPBar({ value, max, label }: XPBarProps) {
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <Text style={styles.label}>{label ?? "XP Progress"}</Text>
+        <Text style={styles.label}>⭐ {label ?? "XP Progress"}</Text>
         <Text style={styles.value}>
           {Math.round(value)}/{Math.round(safeMax)}
         </Text>
       </View>
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${progress * 100}%` }]} />
+        <View style={[styles.fill, { width: `${progress * 100}%` }]}>
+          <View style={styles.shimmer} />
+        </View>
       </View>
     </View>
   );
@@ -46,7 +48,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   track: {
-    height: 8,
+    height: 10,
     borderRadius: 999,
     backgroundColor: "rgba(32, 48, 87, 0.82)",
     overflow: "hidden",
@@ -58,5 +60,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#29D6C7",
     ...theme.elevation.glowCyan,
+    overflow: "hidden",
+  },
+  shimmer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "50%",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderRadius: 999,
   },
 });

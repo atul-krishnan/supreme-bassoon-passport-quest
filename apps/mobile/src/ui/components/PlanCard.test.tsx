@@ -29,7 +29,7 @@ describe("PlanCard", () => {
     expect(getByText("A short evening plan with one calm stop.")).toBeTruthy();
     expect(getByText("Why this is recommended")).toBeTruthy();
     expect(getByText("Fits a medium budget")).toBeTruthy();
-    expect(getByText("Find Plans")).toBeTruthy();
+    expect(getByText("Start Plan")).toBeTruthy();
   });
 
   it("triggers open/start/save/share handlers", () => {
@@ -49,7 +49,7 @@ describe("PlanCard", () => {
     );
 
     fireEvent.press(getByText("Evening Date Plan"));
-    fireEvent.press(getByText("Find Plans"));
+    fireEvent.press(getByText("Start Plan"));
     fireEvent.press(getByText("Save"));
     fireEvent.press(getByText("Share"));
 

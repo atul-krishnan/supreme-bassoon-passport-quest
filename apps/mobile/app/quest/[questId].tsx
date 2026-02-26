@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
-import type { PlanBundle, QuestCategory } from "@passport-quest/shared";
+import type { CityId, PlanBundle, QuestCategory } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { completeQuest, savePlan, submitRecommendationFeedback } from "../../src/api/endpoints";
 import { enqueueQuestCompletion } from "../../src/db/offlineQueue";
@@ -50,8 +50,8 @@ function normalizeCategory(value: string | undefined): QuestCategory {
   return "landmark";
 }
 
-function normalizeCityId(value: string | undefined): "blr" | "nyc" | null {
-  if (value === "blr" || value === "nyc") {
+function normalizeCityId(value: string | undefined): CityId | null {
+  if (value === "blr" || value === "nyc" || value === "del" || value === "pnq") {
     return value;
   }
   return null;

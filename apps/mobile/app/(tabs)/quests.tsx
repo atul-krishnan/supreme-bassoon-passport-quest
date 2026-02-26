@@ -6,9 +6,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Quest } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { getNearbyQuests, getUserSummary } from "../../src/api/endpoints";
-import { APP_CITY_ANCHOR, APP_CITY_ID } from "../../src/config/city";
+import { getCityAnchor, isCityLive } from "../../src/config/city";
 import { useLocationOverrideStore } from "../../src/state/locationOverride";
 import { useOfflineSyncState } from "../../src/state/offlineSync";
+import { useSessionStore } from "../../src/state/session";
 import { theme } from "../../src/theme";
 import {
   EmptyState,
@@ -61,8 +62,9 @@ function openQuestDetail(
 }
 
 export default function QuestsScreen() {
-  const cityId = APP_CITY_ID;
-  const cityAnchor = APP_CITY_ANCHOR;
+  const activeCityId = useSessionStore((state) => state.activeCityId);
+  const cityAnchor = getCityAnchor(activeCityId);
+  const citySupportsLiveApi = isCityLive(activeCityId);
   const locationOverride = useLocationOverrideStore((state) => state.override);
   const setLocationOverride = useLocationOverrideStore((state) => state.setOverride);
   const pendingCount = useOfflineSyncState((state) => state.pendingCount);
@@ -110,11 +112,11 @@ export default function QuestsScreen() {
   });
 
   const nearbyQuery = useQuery({
-    queryKey: ["nearby-quests", cityId, coords?.lat, coords?.lng, 1600],
-    enabled: coords !== null,
+    queryKey: ["nearby-quests", activeCityId, coords?.lat, coords?.lng, 1600],
+    enabled: coords !== null && citySupportsLiveApi,
     queryFn: () =>
       getNearbyQuests({
-        cityId,
+        cityId: activeCityId,
         lat: coords!.lat,
         lng: coords!.lng,
         radiusM: 1600,
@@ -148,13 +150,13 @@ export default function QuestsScreen() {
   return (
     <ScreenContainer padded={false}>
       <View style={styles.header}>
-        <TopBar title="Quests" subtitle={cityAnchor.label} />
+        <TopBar title="Quests" subtitle={`📍 ${cityAnchor.label}`} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <GlassCard style={styles.cityActionsCard}>
           <Text style={styles.cityInfoLabel}>
-            Active city:{" "}
+            🏙️ Active city:{" "}
             <Text style={styles.cityInfoValue}>{cityAnchor.label}</Text>
           </Text>
           <Pressable
@@ -168,20 +170,20 @@ export default function QuestsScreen() {
               });
               setCoords({ lat: cityAnchor.lat, lng: cityAnchor.lng });
               trackUiEvent("map_use_test_location", {
-                cityId,
+                cityId: activeCityId,
                 source: "quests_tab",
               });
             }}
             style={styles.cityActionButton}
           >
             <Text style={styles.cityActionLabel}>
-              Use {cityAnchor.label} test location
+              📍 Use {cityAnchor.label} test location
             </Text>
           </Pressable>
         </GlassCard>
 
         <GlassCard style={styles.syncCard}>
-          <Text style={styles.syncTitle}>Offline Sync</Text>
+          <Text style={styles.syncTitle}>🔄 Offline Sync</Text>
           <Text style={styles.syncMeta}>Pending completions: {pendingCount}</Text>
           <Text style={styles.syncMeta}>
             Status: {isSyncing ? "Syncing" : "Idle"}
@@ -190,9 +192,9 @@ export default function QuestsScreen() {
             Last sync:{" "}
             {lastSyncAt
               ? new Date(lastSyncAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
+                hour: "2-digit",
+                minute: "2-digit",
+              })
               : "No sync yet"}
           </Text>
           {lastError === "offline" ? (
@@ -202,22 +204,34 @@ export default function QuestsScreen() {
           ) : null}
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Nearby</Text>
-        {nearbyQuery.isLoading ? (
+        <Text style={styles.sectionTitle}>📍 Nearby</Text>
+        {!citySupportsLiveApi ? (
+          <GlassCard style={styles.cityRolloutCard}>
+            <Text style={styles.cityRolloutTitle}>
+              Live quests are rolling out in {cityAnchor.label}
+            </Text>
+            <Text style={styles.cityRolloutBody}>
+              Start from Home for assistant picks while we warm up nearby coverage.
+            </Text>
+          </GlassCard>
+        ) : null}
+        {citySupportsLiveApi && nearbyQuery.isLoading ? (
           <LoadingShimmer label="Loading nearby quests..." />
         ) : null}
-        {nearbyQuery.error ? (
+        {citySupportsLiveApi && nearbyQuery.error ? (
           <InlineError
             message={`Could not load nearby quests. ${String((nearbyQuery.error as Error).message)}`}
           />
         ) : null}
-        {nearbyQuery.isSuccess && nearbyQuests.length === 0 ? (
+        {citySupportsLiveApi && nearbyQuery.isSuccess && nearbyQuests.length === 0 ? (
           <EmptyState
             title="No quests in this area yet"
-            description="Try another spot."
+            description="Try another spot or enable test location."
+            icon="location-outline"
           />
         ) : null}
-        {nearbyQuests.map((quest) => (
+        {citySupportsLiveApi &&
+          nearbyQuests.map((quest) => (
           <QuestMiniCard
             key={`nearby-${quest.id}`}
             quest={{
@@ -232,17 +246,24 @@ export default function QuestsScreen() {
               status: "nearby",
             }}
             compact
-            ctaLabel="View Details"
+            ctaLabel="Start Plan"
             onPress={() => openQuestDetail(quest)}
             onStart={() => openQuestDetail(quest)}
           />
         ))}
 
-        <Text style={styles.sectionTitle}>Suggested</Text>
-        {suggestedQuests.length === 0 ? (
+        <Text style={styles.sectionTitle}>✨ Suggested</Text>
+        {!citySupportsLiveApi ? (
+          <EmptyState
+            title={`Assistant picks only in ${cityAnchor.label} for now`}
+            description="Tap Home to start a curated Hero Plan while nearby suggestions launch."
+            icon="sparkles-outline"
+          />
+        ) : suggestedQuests.length === 0 ? (
           <EmptyState
             title="Suggestions coming soon"
             description="Complete nearby quests first and we will suggest your next run."
+            icon="bulb-outline"
           />
         ) : (
           suggestedQuests.map((quest) => (
@@ -260,7 +281,7 @@ export default function QuestsScreen() {
                 status: "suggested",
               }}
               compact
-              ctaLabel="View Details"
+              ctaLabel="Start Plan"
               onPress={() => openQuestDetail(quest, "recommended", "opened")}
               onStart={() => openQuestDetail(quest, "recommended", "started")}
             />
@@ -269,7 +290,7 @@ export default function QuestsScreen() {
 
         {summaryQuery.data ? (
           <>
-            <Text style={styles.sectionTitle}>Completed</Text>
+            <Text style={styles.sectionTitle}>✅ Completed</Text>
             <GlassCard>
               <Text style={styles.completedCount}>
                 {summaryQuery.data.stats.questsCompleted}
@@ -328,6 +349,16 @@ const styles = StyleSheet.create({
   syncWarning: {
     color: theme.colors.warning,
     fontWeight: "600",
+  },
+  cityRolloutCard: {
+    gap: theme.spacing.xs,
+  },
+  cityRolloutTitle: {
+    color: theme.colors.textPrimary,
+    fontWeight: "700",
+  },
+  cityRolloutBody: {
+    color: theme.colors.textSecondary,
   },
   sectionTitle: {
     color: theme.colors.textPrimary,

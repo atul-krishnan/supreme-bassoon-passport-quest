@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { trackUiEvent } from "../../src/analytics/events";
 import {
   acceptFriend,
@@ -52,18 +53,18 @@ function eventMessage(
   payload: Record<string, unknown>,
 ): string {
   if (eventType === "badge_unlocked") {
-    return `unlocked \"${String(payload.badgeName ?? payload.badgeKey ?? "New Badge")}\" badge!`;
+    return `unlocked \"${String(payload.badgeName ?? payload.badgeKey ?? "New Badge")}\" badge! 🏆`;
   }
   if (eventType === "quest_completed") {
-    return `completed a quest for ${String(payload.xpAwarded ?? 0)} XP.`;
+    return `completed a quest for ${String(payload.xpAwarded ?? 0)} XP ⚡`;
   }
   if (eventType === "friend_connected") {
-    return "added a new friend.";
+    return "added a new friend 🤝";
   }
   if (eventType === "streak_updated") {
-    return "extended their streak.";
+    return "extended their streak 🔥";
   }
-  return "shared a new moment.";
+  return "shared a new moment ✨";
 }
 
 export default function SocialScreen() {
@@ -95,7 +96,7 @@ export default function SocialScreen() {
         status: result.status,
       });
       setStatusMessage(
-        result.status === "sent" ? "Request sent" : `Status: ${result.status}`,
+        result.status === "sent" ? "✅ Request sent" : `Status: ${result.status}`,
       );
       setFriendUsername("");
       await Promise.all([
@@ -106,7 +107,7 @@ export default function SocialScreen() {
       ]);
     },
     onError: () => {
-      setStatusMessage("Couldn't send request. Try again.");
+      setStatusMessage("❌ Couldn't send request. Try again.");
     },
   });
 
@@ -116,7 +117,7 @@ export default function SocialScreen() {
       trackUiEvent("social_accept_friend_request", { status: result.status });
       setStatusMessage(
         result.status === "accepted"
-          ? "Request accepted"
+          ? "✅ Request accepted"
           : `Status: ${result.status}`,
       );
       await Promise.all([
@@ -130,7 +131,7 @@ export default function SocialScreen() {
       ]);
     },
     onError: () => {
-      setStatusMessage("Couldn't accept request. Try again.");
+      setStatusMessage("❌ Couldn't accept request. Try again.");
     },
   });
 
@@ -183,7 +184,10 @@ export default function SocialScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <GlassCard style={styles.segmentCard}>
-          <Text style={styles.segmentActive}>Recent Activity (max 10)</Text>
+          <View style={styles.segmentRow}>
+            <Ionicons name="pulse-outline" size={18} color="#95EDDF" />
+            <Text style={styles.segmentActive}>Recent Activity</Text>
+          </View>
         </GlassCard>
 
         <GlassCard>
@@ -192,7 +196,10 @@ export default function SocialScreen() {
             onPress={() => setShowTools((value) => !value)}
             style={styles.toolsToggle}
           >
-            <Text style={styles.toolsToggleLabel}>Friend actions (MVP testing)</Text>
+            <View style={styles.toolsToggleRow}>
+              <Ionicons name="people-outline" size={20} color={theme.colors.textPrimary} />
+              <Text style={styles.toolsToggleLabel}>Friend actions</Text>
+            </View>
             <Text style={styles.toolsToggleHint}>{showTools ? "Hide" : "Show"}</Text>
           </Pressable>
 
@@ -201,19 +208,19 @@ export default function SocialScreen() {
               <TextInput
                 value={friendUsername}
                 onChangeText={setFriendUsername}
-                placeholder="Friend username"
+                placeholder="👤 Friend username"
                 placeholderTextColor={theme.colors.textMuted}
                 autoCapitalize="none"
                 style={styles.input}
               />
               <NeonButton
-                label="Add Friend"
+                label="➕ Add Friend"
                 onPress={() => requestMutation.mutate()}
                 loading={requestMutation.isPending}
                 disabled={friendUsername.trim().length < 3}
               />
 
-              <Text style={styles.toolsSectionTitle}>Incoming Requests</Text>
+              <Text style={styles.toolsSectionTitle}>📩 Incoming Requests</Text>
               {incomingPendingQuery.isLoading ? (
                 <LoadingShimmer label="Loading incoming requests..." />
               ) : null}
@@ -221,11 +228,16 @@ export default function SocialScreen() {
                 <InlineError message="Could not load incoming requests." />
               ) : null}
               {(incomingPendingQuery.data?.requests ?? []).length === 0 &&
-              incomingPendingQuery.isSuccess ? (
+                incomingPendingQuery.isSuccess ? (
                 <Text style={styles.helperMuted}>No pending requests.</Text>
               ) : null}
               {(incomingPendingQuery.data?.requests ?? []).map((request) => (
                 <View key={request.requestId} style={styles.requestRow}>
+                  <View style={styles.requestAvatar}>
+                    <Text style={styles.requestAvatarText}>
+                      {request.senderUsername.slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.requestUser}>@{request.senderUsername}</Text>
                     <Text style={styles.requestMeta}>
@@ -244,18 +256,23 @@ export default function SocialScreen() {
                 </View>
               ))}
 
-              <Text style={styles.toolsSectionTitle}>Compare Profiles</Text>
+              <Text style={styles.toolsSectionTitle}>📊 Compare Profiles</Text>
               {(acceptedIncomingQuery.data?.requests ?? []).length === 0 &&
-              acceptedIncomingQuery.isSuccess ? (
+                acceptedIncomingQuery.isSuccess ? (
                 <Text style={styles.helperMuted}>
                   Accept a request first to unlock compare.
                 </Text>
               ) : null}
               {(acceptedIncomingQuery.data?.requests ?? []).map((request) => (
                 <View key={request.requestId} style={styles.requestRow}>
+                  <View style={styles.requestAvatar}>
+                    <Text style={styles.requestAvatarText}>
+                      {request.senderUsername.slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.requestUser}>@{request.senderUsername}</Text>
-                    <Text style={styles.requestMeta}>Connection ready</Text>
+                    <Text style={styles.requestMeta}>✅ Connection ready</Text>
                   </View>
                   <NeonButton
                     label="Compare"
@@ -282,18 +299,27 @@ export default function SocialScreen() {
 
               {compareMutation.data ? (
                 <GlassCard>
-                  <Text style={styles.compareTitle}>Profile Compare</Text>
-                  <Text style={styles.compareLine}>
-                    Your XP: {compareMutation.data.me.xp} | Friend XP: {compareMutation.data.friend.xp}
-                  </Text>
-                  <Text style={styles.compareLine}>
-                    Your Level: {compareMutation.data.me.level} | Friend Level: {compareMutation.data.friend.level}
-                  </Text>
-                  <Text style={styles.compareLine}>
-                    Delta XP: {compareMutation.data.deltas.xp}
-                  </Text>
-                  <Text style={styles.compareLine}>
-                    Delta Badges: {compareMutation.data.deltas.badgeCount}
+                  <Text style={styles.compareTitle}>📊 Profile Compare</Text>
+                  <View style={styles.compareGrid}>
+                    <View style={styles.compareItem}>
+                      <Text style={styles.compareLabel}>Your XP</Text>
+                      <Text style={styles.compareValue}>{compareMutation.data.me.xp}</Text>
+                    </View>
+                    <View style={styles.compareItem}>
+                      <Text style={styles.compareLabel}>Friend XP</Text>
+                      <Text style={styles.compareValue}>{compareMutation.data.friend.xp}</Text>
+                    </View>
+                    <View style={styles.compareItem}>
+                      <Text style={styles.compareLabel}>Your Level</Text>
+                      <Text style={styles.compareValue}>{compareMutation.data.me.level}</Text>
+                    </View>
+                    <View style={styles.compareItem}>
+                      <Text style={styles.compareLabel}>Friend Level</Text>
+                      <Text style={styles.compareValue}>{compareMutation.data.friend.level}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.compareDelta}>
+                    Delta XP: {compareMutation.data.deltas.xp} | Delta Badges: {compareMutation.data.deltas.badgeCount}
                   </Text>
                 </GlassCard>
               ) : null}
@@ -315,6 +341,7 @@ export default function SocialScreen() {
           <EmptyState
             title="Your feed is quiet"
             description="Add friends to see their quest moments."
+            icon="chatbubbles-outline"
           />
         ) : null}
         {feedEvents.map((event) => (
@@ -338,6 +365,11 @@ const styles = StyleSheet.create({
   segmentCard: {
     paddingVertical: theme.spacing.sm,
   },
+  segmentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   segmentActive: {
     color: "#95EDDF",
     fontWeight: "700",
@@ -347,6 +379,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  toolsToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   toolsToggleLabel: {
     color: theme.colors.textPrimary,
@@ -374,6 +411,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontWeight: "700",
     marginTop: theme.spacing.xs,
+    fontSize: 16,
   },
   helperMuted: {
     color: theme.colors.textMuted,
@@ -389,6 +427,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: theme.spacing.sm,
   },
+  requestAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#213565",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  requestAvatarText: {
+    color: theme.colors.accentCyan,
+    fontSize: 16,
+    fontWeight: "800",
+  },
   requestUser: {
     color: theme.colors.textPrimary,
     fontWeight: "700",
@@ -403,12 +454,38 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontWeight: "800",
     fontSize: 16,
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
-  compareLine: {
+  compareGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.xs,
+  },
+  compareItem: {
+    width: "47%",
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(108, 144, 210, 0.26)",
+    backgroundColor: "rgba(14, 24, 45, 0.72)",
+    padding: theme.spacing.sm,
+    alignItems: "center",
+    gap: 4,
+  },
+  compareLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  compareValue: {
+    color: theme.colors.textPrimary,
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  compareDelta: {
     color: theme.colors.textSecondary,
-    fontSize: theme.typography.body.fontSize,
-    lineHeight: theme.typography.body.lineHeight,
+    fontSize: theme.typography.caption.fontSize,
+    marginTop: theme.spacing.sm,
+    textAlign: "center",
   },
   statusMessage: {
     color: theme.colors.textSecondary,
