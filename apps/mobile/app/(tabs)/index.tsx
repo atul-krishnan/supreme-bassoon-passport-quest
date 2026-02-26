@@ -73,6 +73,7 @@ type PlanLoadResult = {
 const HERO_XP_REWARD = 50;
 const LIVE_RECOMMENDATION_TIMEOUT_MS = 1400;
 const TRUST_SIGNAL_FALLBACK = "Recommended because it's a local favorite";
+const EMPTY_HERO_PLANS: PlanBundle[] = [];
 
 const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
@@ -215,9 +216,10 @@ export default function PlanScreen() {
   const nearbyP95Ms = useReliabilityStore(
     (state) => state.nearbyByCity[activeCityId]?.p95Ms ?? null,
   );
-  const cachedHeroPlans = useAssistantCacheStore(
-    (state) => state.heroPlansByCity[activeCityId]?.plans ?? [],
+  const cachedHeroPlansFromStore = useAssistantCacheStore(
+    (state) => state.heroPlansByCity[activeCityId]?.plans,
   );
+  const cachedHeroPlans = cachedHeroPlansFromStore ?? EMPTY_HERO_PLANS;
   const setHeroPlansCache = useAssistantCacheStore((state) => state.setHeroPlans);
 
   const [contextVisible, setContextVisible] = useState(false);
@@ -309,6 +311,23 @@ export default function PlanScreen() {
   );
 
   const startPlanContextMutation = useMutation({
+    onMutate: (input) => {
+      const fallback = resolveFallbackPlans(input.contextType);
+      setPlans(fallback.plans);
+      setPlansError(null);
+      setActiveTripContextId(null);
+
+      if (!citySupportsLiveApi || isNearbyGateBreached) {
+        setAssistantNotice(buildFallbackNotice(cityAnchor.label, "release_gate"));
+        return;
+      }
+
+      setAssistantNotice(
+        fallback.source === "cache"
+          ? "Refreshing with live picks..."
+          : `Loading fresh picks for ${cityAnchor.label}...`,
+      );
+    },
     mutationFn: async (input: PlanContextInput): Promise<PlanLoadResult> => {
       const fallback = resolveFallbackPlans(input.contextType);
 
@@ -402,9 +421,30 @@ export default function PlanScreen() {
     autoLoadedCityRef.current = activeCityId;
 
     const initialInput = buildContextInput(activeScenario, activeScenario.contextType);
+    const fallback = resolveFallbackPlans(initialInput.contextType);
     setSelectedCompanion(initialInput.contextType);
+    setPlans(fallback.plans);
+    setPlansError(null);
+    setActiveTripContextId(null);
+    if (!citySupportsLiveApi || isNearbyGateBreached) {
+      setAssistantNotice(buildFallbackNotice(cityAnchor.label, "release_gate"));
+    } else {
+      setAssistantNotice(
+        fallback.source === "cache"
+          ? "Refreshing with live picks..."
+          : `Loading fresh picks for ${cityAnchor.label}...`,
+      );
+    }
     startPlanContextMutation.mutate(initialInput);
-  }, [activeCityId, activeScenario, startPlanContextMutation]);
+  }, [
+    activeCityId,
+    activeScenario,
+    cityAnchor.label,
+    citySupportsLiveApi,
+    isNearbyGateBreached,
+    resolveFallbackPlans,
+    startPlanContextMutation,
+  ]);
 
   useEffect(() => {
     if (!activeTripContextId) {
@@ -534,10 +574,20 @@ export default function PlanScreen() {
     setSelectedCompanion(scenario.contextType);
     setContextVisible(false);
     setPlansError(null);
-    setAssistantNotice(null);
-    startPlanContextMutation.mutate(
-      buildContextInput(scenario, scenario.contextType),
-    );
+    const input = buildContextInput(scenario, scenario.contextType);
+    const fallback = resolveFallbackPlans(input.contextType);
+    setPlans(fallback.plans);
+    setActiveTripContextId(null);
+    if (!citySupportsLiveApi || isNearbyGateBreached) {
+      setAssistantNotice(buildFallbackNotice(cityAnchor.label, "release_gate"));
+    } else {
+      setAssistantNotice(
+        fallback.source === "cache"
+          ? "Refreshing with live picks..."
+          : `Loading fresh picks for ${cityAnchor.label}...`,
+      );
+    }
+    startPlanContextMutation.mutate(input);
   };
 
   const userLabel = summaryQuery.data?.user.username.split("_")[0] ?? "Explorer";
@@ -563,7 +613,6 @@ export default function PlanScreen() {
       >
         <GlassCard style={styles.topPickCard}>
           <Text style={styles.cardEyebrow}>Top Pick for You</Text>
-          <Text style={styles.trustSignalLabel}>Trust Signal</Text>
           <View style={styles.trustSignalChip}>
             <Text style={styles.trustSignalText}>✨ {trustSignal}</Text>
           </View>
@@ -573,14 +622,16 @@ export default function PlanScreen() {
           ) : null}
 
           <Text style={styles.topPickTitle}>
-            {topPick ? topPick.title : "No picks yet"}
+            {topPick ? topPick.title : "Finding your plan…"}
           </Text>
 
-          <Text style={styles.topPickMeta}>
-            {cityAnchor.label} • ~
-            {topPick?.estimatedDurationMin ?? activeScenario.timeBudgetMin} mins •
-            {(topPick?.estimatedSpendBand ?? activeScenario.budget).toUpperCase()}
-          </Text>
+          <View style={styles.logisticsRow}>
+            <Text style={styles.logisticChip}>⏱ {topPick?.estimatedDurationMin ?? activeScenario.timeBudgetMin}m</Text>
+            <Text style={styles.logisticDot}>·</Text>
+            <Text style={styles.logisticChip}>💰 {(topPick?.estimatedSpendBand ?? activeScenario.budget)}</Text>
+            <Text style={styles.logisticDot}>·</Text>
+            <Text style={styles.logisticChip}>🚩 {topPick?.stops.length ?? 1} stop{(topPick?.stops.length ?? 1) !== 1 ? "s" : ""}</Text>
+          </View>
 
           {heroImages.length > 0 ? (
             <View style={styles.heroRow}>
@@ -596,18 +647,18 @@ export default function PlanScreen() {
               ) : null}
             </View>
           ) : loadingHero ? (
-            <LoadingShimmer label="Loading your Hero Plan..." />
+            <LoadingShimmer label="Curating your perfect plan…" />
           ) : (
             <View style={styles.heroPlaceholder}>
               <Text style={styles.heroPlaceholderText}>
-                Find Something Else to tell the assistant who&apos;s joining.
+                Tap below to tell the assistant who&apos;s joining.
               </Text>
             </View>
           )}
 
           <View style={styles.heroPrimaryActionRow}>
             <NeonButton
-              label="Start Plan"
+              label="Let's Go"
               onPress={() => {
                 if (topPick) {
                   openPlanDetail(topPick, "started");
@@ -618,7 +669,7 @@ export default function PlanScreen() {
               style={styles.heroPrimaryButton}
             />
             <View style={styles.heroXpPill}>
-              <Text style={styles.heroXpText}>+{HERO_XP_REWARD} XP</Text>
+              <Text style={styles.heroXpText}>⭐ Earn +{HERO_XP_REWARD} XP</Text>
             </View>
           </View>
 
@@ -660,16 +711,16 @@ export default function PlanScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>
-          Assistant Feed for {contextTypeLabel(selectedCompanion)}
+          More for {contextTypeLabel(selectedCompanion)}
         </Text>
 
-        {healthQuery.data?.releaseGates ? (
+        {__DEV__ && healthQuery.data?.releaseGates ? (
           <Text style={styles.healthMeta}>
             Nearby p95: {healthQuery.data.releaseGates.nearbyApiP95Ms ?? "n/a"}ms
           </Text>
         ) : null}
 
-        {nearbyP95Ms !== null ? (
+        {__DEV__ && nearbyP95Ms !== null ? (
           <Text style={styles.healthMeta}>Local nearby p95: {nearbyP95Ms}ms</Text>
         ) : null}
 
@@ -756,16 +807,11 @@ const styles = StyleSheet.create({
   },
   cardEyebrow: {
     color: theme.colors.textMuted,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: "700",
-    fontFamily: theme.typography.caption.fontFamily,
-  },
-  trustSignalLabel: {
-    color: "#A9EDE3",
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
     fontFamily: theme.typography.caption.fontFamily,
   },
   trustSignalChip: {
@@ -775,13 +821,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(132, 240, 228, 0.42)",
     backgroundColor: "rgba(39, 106, 101, 0.32)",
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 5,
     marginBottom: theme.spacing.xs,
   },
   trustSignalText: {
     color: "#DDFEF8",
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: "600",
     fontFamily: theme.typography.body.fontFamily,
   },
@@ -799,12 +845,22 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontFamily: theme.typography.display.fontFamily,
   },
-  topPickMeta: {
+  logisticsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+  },
+  logisticChip: {
     color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    fontWeight: "700",
     textTransform: "capitalize",
-    fontFamily: theme.typography.body.fontFamily,
+    fontFamily: theme.typography.caption.fontFamily,
+  },
+  logisticDot: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: "400",
   },
   heroRow: {
     marginTop: theme.spacing.xs,
