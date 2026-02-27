@@ -1,41 +1,21 @@
 import type {
   BootstrapConfig,
   CityId,
-  CompleteQuestRequest,
-  CompleteQuestResponse,
+  FlowDiagnosticRequest,
+  FlowDiagnosticResponse,
+  FlowStateSummaryResponse,
   HealthResponse,
-  IncomingFriendRequestsResponse,
-  NearbyQuestResponse,
-  ProfileCompareResponse,
+  HeroPlayResponse,
+  MarkPlayStepDoneResponse,
+  PlaySessionResponse,
   RegisterPushTokenRequest,
   RegisterPushTokenResponse,
-  SocialFeedResponse,
+  StartPlaySessionRequest,
+  StartPlaySessionResponse,
   UpdateProfileRequest,
-  UserBadgesResponse,
   UserSummaryResponse,
 } from "@passport-quest/shared";
 import { apiRequest } from "./http";
-
-export function getNearbyQuests(params: {
-  cityId: CityId;
-  lat: number;
-  lng: number;
-  radiusM: number;
-}) {
-  return apiRequest<NearbyQuestResponse>({
-    method: "GET",
-    path: "/quests/nearby",
-    query: params,
-  });
-}
-
-export function completeQuest(payload: CompleteQuestRequest) {
-  return apiRequest<CompleteQuestResponse>({
-    method: "POST",
-    path: "/quests/complete",
-    body: payload,
-  });
-}
 
 export function getBootstrapConfig(cityId: CityId) {
   return apiRequest<BootstrapConfig>({
@@ -49,61 +29,6 @@ export function getUserSummary() {
   return apiRequest<UserSummaryResponse>({
     method: "GET",
     path: "/users/me/summary",
-  });
-}
-
-export function getUserBadges() {
-  return apiRequest<UserBadgesResponse>({
-    method: "GET",
-    path: "/users/me/badges",
-  });
-}
-
-export function getSocialFeed(limit = 20, cursor?: string) {
-  return apiRequest<SocialFeedResponse>({
-    method: "GET",
-    path: "/social/feed",
-    query: { limit, cursor },
-  });
-}
-
-export function requestFriend(receiverUserId: string) {
-  return apiRequest<{ status: string; requestId?: string }>({
-    method: "POST",
-    path: "/social/friends/request",
-    body: { receiverUserId },
-  });
-}
-
-export function requestFriendByUsername(username: string) {
-  return apiRequest<{ status: string; requestId?: string; reason?: string }>({
-    method: "POST",
-    path: "/social/friends/request-by-username",
-    body: { username },
-  });
-}
-
-export function acceptFriend(requestId: string) {
-  return apiRequest<{ status: string }>({
-    method: "POST",
-    path: "/social/friends/accept",
-    body: { requestId },
-  });
-}
-
-export function getIncomingFriendRequests(status: "pending" | "accepted" | "rejected" | "cancelled" = "pending") {
-  return apiRequest<IncomingFriendRequestsResponse>({
-    method: "GET",
-    path: "/social/friend-requests/incoming",
-    query: { status, limit: 30 },
-  });
-}
-
-export function getProfileCompare(friendUserId: string) {
-  return apiRequest<ProfileCompareResponse>({
-    method: "GET",
-    path: "/users/me/profile-compare",
-    query: { friendUserId },
   });
 }
 
@@ -127,5 +52,50 @@ export function getHealth() {
   return apiRequest<HealthResponse>({
     method: "GET",
     path: "/health",
+  });
+}
+
+export function saveFlowDiagnostic(payload: FlowDiagnosticRequest) {
+  return apiRequest<FlowDiagnosticResponse>({
+    method: "POST",
+    path: "/flowstate/diagnostic",
+    body: payload,
+  });
+}
+
+export function getHeroPlay(cityId?: CityId) {
+  return apiRequest<HeroPlayResponse>({
+    method: "GET",
+    path: "/flowstate/play/hero",
+    query: cityId ? { cityId } : undefined,
+  });
+}
+
+export function startPlaySession(payload: StartPlaySessionRequest) {
+  return apiRequest<StartPlaySessionResponse>({
+    method: "POST",
+    path: "/flowstate/play/start",
+    body: payload,
+  });
+}
+
+export function getPlaySession(sessionId: string) {
+  return apiRequest<PlaySessionResponse>({
+    method: "GET",
+    path: `/flowstate/play/sessions/${encodeURIComponent(sessionId)}`,
+  });
+}
+
+export function markPlayStepDone(sessionId: string, stepOrder: number) {
+  return apiRequest<MarkPlayStepDoneResponse>({
+    method: "POST",
+    path: `/flowstate/play/sessions/${encodeURIComponent(sessionId)}/steps/${stepOrder}/done`,
+  });
+}
+
+export function getFlowStateSummary() {
+  return apiRequest<FlowStateSummaryResponse>({
+    method: "GET",
+    path: "/flowstate/summary",
   });
 }

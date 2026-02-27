@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import Constants from "expo-constants";
+import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
 import {
   ActivityIndicator,
@@ -11,6 +12,11 @@ import {
   Text,
   View,
 } from "react-native";
+import {
+  Manrope_400Regular,
+  Manrope_600SemiBold,
+} from "@expo-google-fonts/manrope";
+import { Sora_700Bold, Sora_800ExtraBold } from "@expo-google-fonts/sora";
 import { trackUiEvent } from "../src/analytics/events";
 import {
   getBootstrapConfig,
@@ -19,26 +25,29 @@ import {
 } from "../src/api/endpoints";
 import { APP_CITY_ID } from "../src/config/city";
 import { useSessionStore } from "../src/state/session";
-import { useOfflineSync } from "../src/hooks/useOfflineSync";
 import {
   captureNonFatal,
   initSentry,
   setSentryUser,
 } from "../src/observability/sentry";
 
-let hasTrackedFirstThreeCompletions = false;
-
 export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
+  const [fontsLoaded, fontError] = useFonts({
+    Sora_700Bold,
+    Sora_800ExtraBold,
+    Manrope_400Regular,
+    Manrope_600SemiBold,
+  });
   const bootstrapSession = useSessionStore((state) => state.bootstrapSession);
   const isBootstrapped = useSessionStore((state) => state.isBootstrapped);
   const userId = useSessionStore((state) => state.userId);
   const setNeedsOnboarding = useSessionStore((state) => state.setNeedsOnboarding);
-  const { flushQueue } = useOfflineSync();
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
   const [isProfileGateLoading, setIsProfileGateLoading] = useState(true);
+  const fontsReady = fontsLoaded || Boolean(fontError);
 
   useEffect(() => {
     initSentry();
@@ -81,21 +90,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!isBootstrapped) {
-      setIsProfileGateLoading(true);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      void flushQueue();
-    }, 15000);
-
-    void flushQueue();
-
-    return () => clearInterval(interval);
-  }, [flushQueue, isBootstrapped]);
-
-  useEffect(() => {
-    if (!isBootstrapped) {
       return;
     }
 
@@ -104,22 +98,12 @@ export default function RootLayout() {
       setIsProfileGateLoading(true);
       try {
         const summary = await getUserSummary();
-        const username = summary.user.username ?? "";
-        const hasPlaceholderUsername = /^u_[a-f0-9]{20}$/i.test(username);
+        const needsOnboarding = !summary.user.flowDiagnosticCompletedAt;
         if (isMounted) {
-          setNeedsOnboarding(hasPlaceholderUsername);
+          setNeedsOnboarding(needsOnboarding);
           trackUiEvent("app_bootstrap_success", {
-            needsOnboarding: hasPlaceholderUsername,
+            needsOnboarding,
           });
-          if (
-            summary.stats.questsCompleted >= 3 &&
-            !hasTrackedFirstThreeCompletions
-          ) {
-            trackUiEvent("first_3_quests_completed", {
-              questsCompleted: summary.stats.questsCompleted,
-            });
-            hasTrackedFirstThreeCompletions = true;
-          }
         }
       } catch {
         captureNonFatal(new Error("summary bootstrap failed"), {
@@ -200,17 +184,19 @@ export default function RootLayout() {
     });
   }, [isBootstrapped]);
 
-  if (!isBootstrapped || isProfileGateLoading) {
+  if (!fontsReady || !isBootstrapped || isProfileGateLoading) {
     return (
       <SafeAreaView
         style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
       >
-        {isBootstrapping || isProfileGateLoading ? (
+        {!fontsReady || isBootstrapping || isProfileGateLoading ? (
           <ActivityIndicator size="large" />
         ) : null}
         <View style={{ height: 12 }} />
         <Text>
-          {isBootstrapped && isProfileGateLoading
+          {!fontsReady
+            ? "Loading experience fonts..."
+            : isBootstrapped && isProfileGateLoading
             ? "Preparing your profile..."
             : isBootstrapping
             ? "Starting guest session..."
@@ -252,7 +238,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="quest/[questId]" />
+        <Stack.Screen name="play/[id]" />
       </Stack>
     </QueryClientProvider>
   );

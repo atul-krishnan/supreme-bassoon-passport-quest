@@ -30,6 +30,16 @@ const ALLOWED_PLAN_FEEDBACK_TYPES = new Set([
   "saved",
 ]);
 const ALLOWED_TRIP_END_STATUSES = new Set(["completed", "cancelled"]);
+const ALLOWED_FLOW_ENERGY_BASELINES = new Set(["low", "balanced", "high"]);
+const ALLOWED_FLOW_FOCUS_PILLARS = new Set([
+  "deep_work",
+  "vitality_health",
+  "local_discovery",
+]);
+const ALLOWED_FLOW_FRICTION_POINTS = new Set([
+  "decision_paralysis",
+  "procrastination",
+]);
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,32}$/;
 const RELEASE_SHA = (Deno.env.get("RELEASE_SHA") ?? "dev-local").trim() || "dev-local";
 const APP_ENV = (Deno.env.get("APP_ENV") ?? "local").trim() || "local";
@@ -443,6 +453,125 @@ type QuestRowWithTags = {
   active_to: string | null;
   quest_experience_tags?: QuestTagRow | QuestTagRow[] | null;
 };
+
+type FlowSessionRow = {
+  session_id: string;
+  play_id: string;
+  recommendation_id: string | null;
+  title: string;
+  focus_pillar: string;
+  status: string;
+  current_step_order: number | null;
+  started_at: string;
+  completed_at: string | null;
+  xp_reward: number;
+  decision_minutes_saved: number;
+  why: string;
+  steps_json: unknown;
+};
+
+function normalizeFlowStepStatus(value: unknown): "pending" | "active" | "completed" {
+  if (value === "active" || value === "completed") {
+    return value;
+  }
+  return "pending";
+}
+
+function normalizeFlowSessionStatus(value: unknown): "in_progress" | "paused" | "completed" | "cancelled" {
+  if (
+    value === "in_progress" ||
+    value === "paused" ||
+    value === "completed" ||
+    value === "cancelled"
+  ) {
+    return value;
+  }
+  return "in_progress";
+}
+
+function parseFlowSteps(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (item && typeof item === "object" ? item as Record<string, unknown> : null))
+    .filter((item): item is Record<string, unknown> => item !== null)
+    .map((item) => ({
+      order: Number(item.order ?? 0),
+      title: String(item.title ?? "Step"),
+      instruction: String(item.instruction ?? ""),
+      durationSec: Math.max(30, Number(item.durationSec ?? 60)),
+      status: normalizeFlowStepStatus(item.status),
+      startedAt:
+        typeof item.startedAt === "string" && item.startedAt.length > 0
+          ? item.startedAt
+          : undefined,
+      completedAt:
+        typeof item.completedAt === "string" && item.completedAt.length > 0
+          ? item.completedAt
+          : undefined,
+    }))
+    .sort((a, b) => a.order - b.order);
+}
+
+function serializeFlowSession(row: FlowSessionRow) {
+  const steps = parseFlowSteps(row.steps_json);
+  return {
+    sessionId: String(row.session_id),
+    playId: String(row.play_id),
+    recommendationId: row.recommendation_id ? String(row.recommendation_id) : undefined,
+    title: String(row.title),
+    focusPillar: String(row.focus_pillar),
+    status: normalizeFlowSessionStatus(row.status),
+    currentStepOrder:
+      row.current_step_order === null || row.current_step_order === undefined
+        ? null
+        : Number(row.current_step_order),
+    startedAt: String(row.started_at),
+    completedAt: row.completed_at ? String(row.completed_at) : undefined,
+    xpReward: Math.max(0, Number(row.xp_reward ?? 0)),
+    decisionMinutesSaved: Math.max(0, Number(row.decision_minutes_saved ?? 0)),
+    why: String(row.why ?? ""),
+    steps,
+  };
+}
+
+function normalizeFlowSessionPayload(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const row = value as Record<string, unknown>;
+  if (typeof row.sessionId === "string") {
+    return {
+      sessionId: row.sessionId,
+      playId: String(row.playId ?? ""),
+      recommendationId:
+        typeof row.recommendationId === "string" ? row.recommendationId : undefined,
+      title: String(row.title ?? ""),
+      focusPillar: String(row.focusPillar ?? ""),
+      status: normalizeFlowSessionStatus(row.status),
+      currentStepOrder:
+        row.currentStepOrder === null || row.currentStepOrder === undefined
+          ? null
+          : Number(row.currentStepOrder),
+      startedAt: String(row.startedAt ?? ""),
+      completedAt:
+        typeof row.completedAt === "string" ? row.completedAt : undefined,
+      xpReward: Math.max(0, Number(row.xpReward ?? 0)),
+      decisionMinutesSaved: Math.max(0, Number(row.decisionMinutesSaved ?? 0)),
+      why: String(row.why ?? ""),
+      steps: parseFlowSteps(row.steps),
+    };
+  }
+
+  if (typeof row.session_id === "string") {
+    return serializeFlowSession(row as unknown as FlowSessionRow);
+  }
+
+  return null;
+}
 
 function normalizeStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -1153,6 +1282,292 @@ async function handleDeleteSavedPlan(
   return jsonResponse(data);
 }
 
+async function handleFlowDiagnostic(
+  req: Request,
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  const body = await readJsonBody(req);
+  const energyBaseline =
+    typeof body.energyBaseline === "string"
+      ? body.energyBaseline.toLowerCase().trim()
+      : "";
+  const focusPillar =
+    typeof body.focusPillar === "string"
+      ? body.focusPillar.toLowerCase().trim()
+      : "";
+  const frictionPoint =
+    typeof body.frictionPoint === "string"
+      ? body.frictionPoint.toLowerCase().trim()
+      : "";
+
+  if (!ALLOWED_FLOW_ENERGY_BASELINES.has(energyBaseline)) {
+    return errorResponse(400, "energyBaseline must be one of: low, balanced, high");
+  }
+  if (!ALLOWED_FLOW_FOCUS_PILLARS.has(focusPillar)) {
+    return errorResponse(
+      400,
+      "focusPillar must be one of: deep_work, vitality_health, local_discovery",
+    );
+  }
+  if (!ALLOWED_FLOW_FRICTION_POINTS.has(frictionPoint)) {
+    return errorResponse(
+      400,
+      "frictionPoint must be one of: decision_paralysis, procrastination",
+    );
+  }
+
+  const { data, error } = await db.rpc("upsert_user_flow_diagnostic", {
+    p_user_id: userId,
+    p_energy_baseline: energyBaseline,
+    p_focus_pillar: focusPillar,
+    p_friction_point: frictionPoint,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  return jsonResponse(data);
+}
+
+async function handleFlowHeroPlay(
+  db: DbClient,
+  userId: string,
+  url: URL,
+): Promise<Response> {
+  const cityIdParam = url.searchParams.get("cityId");
+  let cityId: "blr" | "nyc" | null = null;
+
+  if (cityIdParam) {
+    cityId = parseCityIdFromValue(cityIdParam);
+    if (!cityId) {
+      return errorResponse(400, "cityId must be one of: blr, nyc");
+    }
+  }
+
+  const { data, error } = await db.rpc("get_hero_play", {
+    p_user_id: userId,
+    p_city_id: cityId,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  if (!data || typeof data !== "object") {
+    return errorResponse(500, "invalid_hero_response");
+  }
+
+  const payload = data as Record<string, unknown>;
+  const status = String(payload.status ?? "diagnostic_required");
+  if (status !== "ready") {
+    return jsonResponse({
+      status: "diagnostic_required",
+      diagnosticCompletedAt:
+        typeof payload.diagnosticCompletedAt === "string"
+          ? payload.diagnosticCompletedAt
+          : undefined,
+    });
+  }
+
+  const heroPlay =
+    payload.heroPlay && typeof payload.heroPlay === "object"
+      ? payload.heroPlay
+      : null;
+  if (!heroPlay) {
+    return errorResponse(500, "hero_play_missing");
+  }
+
+  return jsonResponse({
+    status: "ready",
+    diagnosticCompletedAt:
+      typeof payload.diagnosticCompletedAt === "string"
+        ? payload.diagnosticCompletedAt
+        : undefined,
+    heroPlay,
+  });
+}
+
+async function handleFlowPlayStart(
+  req: Request,
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  const body = await readJsonBody(req);
+  const recommendationId =
+    typeof body.recommendationId === "string"
+      ? body.recommendationId.trim()
+      : "";
+
+  if (!recommendationId) {
+    return errorResponse(400, "recommendationId is required");
+  }
+
+  const { data, error } = await db.rpc("start_play_session", {
+    p_user_id: userId,
+    p_recommendation_id: recommendationId,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  if (!data || typeof data !== "object") {
+    return errorResponse(500, "invalid_play_start_response");
+  }
+
+  const payload = data as Record<string, unknown>;
+  const status = String(payload.status ?? "recommendation_not_found");
+  if (status === "recommendation_not_found") {
+    return errorResponse(404, "recommendation_not_found");
+  }
+
+  const session = normalizeFlowSessionPayload(payload.session);
+  if (!session) {
+    return errorResponse(500, "session_payload_missing");
+  }
+
+  return jsonResponse({
+    status: "started",
+    session,
+  });
+}
+
+async function handleFlowPlaySession(
+  db: DbClient,
+  userId: string,
+  sessionId: string,
+): Promise<Response> {
+  const normalizedSessionId = decodeURIComponent(sessionId).trim();
+  if (!normalizedSessionId) {
+    return errorResponse(400, "sessionId is required");
+  }
+
+  const { data, error } = await db.rpc("get_play_session_detail", {
+    p_user_id: userId,
+    p_play_session_id: normalizedSessionId,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  if (!data || typeof data !== "object") {
+    return errorResponse(500, "invalid_session_response");
+  }
+
+  const payload = data as Record<string, unknown>;
+  if (payload.status === "not_found") {
+    return errorResponse(404, "play_session_not_found");
+  }
+
+  const session = normalizeFlowSessionPayload(payload.session);
+  if (!session) {
+    return errorResponse(500, "session_payload_missing");
+  }
+
+  return jsonResponse({
+    status: "ok",
+    session,
+  });
+}
+
+async function handleFlowStepDone(
+  db: DbClient,
+  userId: string,
+  sessionId: string,
+  stepOrderRaw: string,
+): Promise<Response> {
+  const normalizedSessionId = decodeURIComponent(sessionId).trim();
+  const stepOrder = Number(stepOrderRaw);
+
+  if (!normalizedSessionId) {
+    return errorResponse(400, "sessionId is required");
+  }
+  if (!Number.isFinite(stepOrder) || stepOrder < 1) {
+    return errorResponse(400, "stepOrder must be a positive integer");
+  }
+
+  const { data, error } = await db.rpc("mark_play_step_done", {
+    p_user_id: userId,
+    p_play_session_id: normalizedSessionId,
+    p_step_order: Math.floor(stepOrder),
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  if (!data || typeof data !== "object") {
+    return errorResponse(500, "invalid_step_result");
+  }
+
+  const payload = data as Record<string, unknown>;
+  if (payload.status === "not_found") {
+    return errorResponse(404, "play_session_not_found");
+  }
+
+  const session = normalizeFlowSessionPayload(payload.session);
+  if (!session) {
+    return errorResponse(500, "session_payload_missing");
+  }
+
+  const reward =
+    payload.reward && typeof payload.reward === "object"
+      ? payload.reward
+      : undefined;
+
+  return jsonResponse({
+    status:
+      payload.status === "already_completed"
+        ? "already_completed"
+        : payload.status === "completed"
+          ? "completed"
+          : "progressed",
+    session,
+    reward,
+  });
+}
+
+async function handleFlowStateSummary(
+  db: DbClient,
+  userId: string,
+): Promise<Response> {
+  const { data, error } = await db.rpc("get_flowstate_summary", {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    return errorResponse(500, error.message);
+  }
+
+  if (!data || typeof data !== "object") {
+    return errorResponse(500, "invalid_flowstate_summary");
+  }
+
+  const payload = data as Record<string, unknown>;
+  const activeSession = normalizeFlowSessionPayload(payload.activeSession);
+
+  return jsonResponse({
+    stats:
+      payload.stats && typeof payload.stats === "object"
+        ? payload.stats
+        : {
+            xpTotal: 0,
+            level: 1,
+            playsCompleted: 0,
+            decisionsSaved: 0,
+            planningMinutesSaved: 0,
+          },
+    diagnosticCompletedAt:
+      typeof payload.diagnosticCompletedAt === "string"
+        ? payload.diagnosticCompletedAt
+        : undefined,
+    activeSession: activeSession ?? undefined,
+  });
+}
+
 async function handleSocialFeed(
   db: DbClient,
   userId: string,
@@ -1450,8 +1865,13 @@ async function handleUserSummary(
   db: DbClient,
   userId: string,
 ): Promise<Response> {
-  const [profileResult, statsResult, completionCountResult, badgeCountResult] =
-    await Promise.all([
+  const [
+    profileResult,
+    statsResult,
+    completionCountResult,
+    badgeCountResult,
+    diagnosticResult,
+  ] = await Promise.all([
       db
         .from("profiles")
         .select("id, username, avatar_url, home_city_id")
@@ -1459,7 +1879,9 @@ async function handleUserSummary(
         .maybeSingle(),
       db
         .from("user_stats")
-        .select("xp_total, level, streak_days")
+        .select(
+          "xp_total, level, streak_days, plays_completed, decisions_saved, planning_minutes_saved",
+        )
         .eq("user_id", userId)
         .maybeSingle(),
       db
@@ -1471,6 +1893,11 @@ async function handleUserSummary(
         .from("user_badges")
         .select("badge_key", { count: "exact", head: true })
         .eq("user_id", userId),
+      db
+        .from("user_flow_diagnostics")
+        .select("completed_at")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
 
   if (profileResult.error) {
@@ -1489,8 +1916,13 @@ async function handleUserSummary(
     return errorResponse(500, badgeCountResult.error.message);
   }
 
+  if (diagnosticResult.error) {
+    return errorResponse(500, diagnosticResult.error.message);
+  }
+
   const profile = profileResult.data;
   const stats = statsResult.data;
+  const diagnostic = diagnosticResult.data;
 
   return jsonResponse({
     user: {
@@ -1498,6 +1930,7 @@ async function handleUserSummary(
       username: profile?.username ?? "Explorer",
       avatarUrl: profile?.avatar_url ?? undefined,
       homeCityId: profile?.home_city_id ?? undefined,
+      flowDiagnosticCompletedAt: diagnostic?.completed_at ?? undefined,
     },
     stats: {
       xpTotal: stats?.xp_total ?? 0,
@@ -1505,6 +1938,9 @@ async function handleUserSummary(
       streakDays: stats?.streak_days ?? 0,
       questsCompleted: completionCountResult.count ?? 0,
       badgeCount: badgeCountResult.count ?? 0,
+      playsCompleted: stats?.plays_completed ?? 0,
+      decisionsSaved: stats?.decisions_saved ?? 0,
+      planningMinutesSaved: stats?.planning_minutes_saved ?? 0,
     },
   });
 }
@@ -1745,6 +2181,45 @@ serve(async (req: Request) => {
         await handleDeleteSavedPlan(db, user.id, planDeleteMatch[1]),
         user.id,
       );
+    }
+
+    if (req.method === "POST" && route === "/flowstate/diagnostic") {
+      return finalize(await handleFlowDiagnostic(req, db, user.id), user.id);
+    }
+
+    if (req.method === "GET" && route === "/flowstate/play/hero") {
+      return finalize(await handleFlowHeroPlay(db, user.id, url), user.id);
+    }
+
+    if (req.method === "POST" && route === "/flowstate/play/start") {
+      return finalize(await handleFlowPlayStart(req, db, user.id), user.id);
+    }
+
+    const flowSessionMatch = route.match(/^\/flowstate\/play\/sessions\/([^/]+)$/);
+    if (req.method === "GET" && flowSessionMatch) {
+      return finalize(
+        await handleFlowPlaySession(db, user.id, flowSessionMatch[1]),
+        user.id,
+      );
+    }
+
+    const flowStepDoneMatch = route.match(
+      /^\/flowstate\/play\/sessions\/([^/]+)\/steps\/([^/]+)\/done$/,
+    );
+    if (req.method === "POST" && flowStepDoneMatch) {
+      return finalize(
+        await handleFlowStepDone(
+          db,
+          user.id,
+          flowStepDoneMatch[1],
+          flowStepDoneMatch[2],
+        ),
+        user.id,
+      );
+    }
+
+    if (req.method === "GET" && route === "/flowstate/summary") {
+      return finalize(await handleFlowStateSummary(db, user.id), user.id);
     }
 
     if (req.method === "GET" && route === "/social/feed") {

@@ -5,26 +5,13 @@ export type UiEventName =
   | "app_bootstrap_success"
   | "onboarding_completed"
   | "profile_updated"
-  | "profile_compare_requested"
   | "push_token_registered"
-  | "first_3_quests_completed"
-  | "social_feed_visible"
-  | "quest_completion_api_latency"
-  | "offline_sync_flush"
-  | "offline_sync_retry"
-  | "offline_sync_success"
-  | "recommended_quest_impression"
-  | "recommended_quest_opened"
-  | "recommended_quest_started"
-  | "recommended_quest_completed"
-  | "map_open_quest"
-  | "map_use_test_location"
-  | "quest_claim_reward"
-  | "quest_claim_queued_offline"
-  | "social_send_friend_request"
-  | "social_accept_friend_request"
-  | "social_compare_profile_success"
-  | "profile_switch_city";
+  | "profile_switch_city"
+  | "flow_diagnostic_completed"
+  | "flow_hero_play_ready"
+  | "flow_play_started"
+  | "flow_play_step_done"
+  | "flow_play_completed";
 
 function shouldSendToPosthog() {
   return Boolean(env.posthogHost && env.posthogApiKey);
