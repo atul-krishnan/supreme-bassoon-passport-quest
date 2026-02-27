@@ -18,13 +18,13 @@ The product still needs to preserve NYC as the first expansion thesis, while avo
 
 Launch production in Bangalore (`cityId=blr`) first, and keep NYC (`cityId=nyc`) staging-ready but inactive until expansion gate metrics are met for two consecutive weeks.
 
-Expansion gate metrics:
+Expansion gate metrics (historical baseline):
 
-- `POST /v1/quests/complete` p95 latency under 2s.
-- Offline completion sync success >= 99% within 10 minutes of reconnect.
-- Zero duplicate rewards from retries (idempotency integrity).
+- Core action API p95 latency under 2s.
+- Offline reliability >= 99% within 10 minutes of reconnect.
+- Zero duplicate reward outcomes from retries.
 - Day-2 return uplift >= +10% from nudge experiment vs holdout.
-- Social loop health: request -> accept -> feed visibility flow functioning at acceptable conversion.
+- Primary loop conversion remains healthy.
 
 ## Options considered
 
@@ -79,7 +79,7 @@ Expansion gate metrics:
 ## Observability impact
 
 - Metrics:
-- Completion latency p95, offline sync success, duplicate completion rate, D2 retention uplift, social funnel conversion.
+- Action latency p95, progression reliability, duplicate reward rate, D2 retention uplift, loop conversion.
 - Logs:
 - Security event logging for rejected/abnormal completion attempts.
 - Alerts:

@@ -3,6 +3,7 @@ export { TopBar } from "./TopBar";
 export { GlassCard } from "./GlassCard";
 export { NeonButton } from "./NeonButton";
 export { XPBar } from "./XPBar";
+export { CircularProgress } from "./CircularProgress";
 export { StatTile } from "./StatTile";
 export { EmptyState } from "./EmptyState";
 export { InlineError } from "./InlineError";

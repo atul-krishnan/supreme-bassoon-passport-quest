@@ -43,6 +43,27 @@ npm run ops:check:zero-cost
 
 Runtime parsing is defined in `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/src/config/env.ts` and supplied by `/Users/atulkrishnan/Documents/Passport Quest/apps/mobile/app.config.ts`.
 
+## Android local runtime runbook
+
+Use this startup order to avoid the `Unable to load script` red screen in Android dev-client:
+
+```bash
+npm run mobile:android:stable
+```
+
+The script:
+
+1. Starts Metro on `:8081` if not already running.
+2. Sets `adb reverse tcp:8081 tcp:8081`.
+3. Runs `expo run:android --no-bundler`.
+
+If you still hit a script-load error:
+
+```bash
+adb reverse tcp:8081 tcp:8081
+npm run mobile:start -- --dev-client --clear --port 8081
+```
+
 ## Guardrails
 
 - Staging builds fail if they point to the production Supabase project URL.
@@ -87,17 +108,17 @@ Gate script:
 
 Thresholds:
 
-- completion p95 `< 2000ms`
-- nearby p95 `< 800ms`
-- offline sync SLA `>= 99%`
+- hero play p95 `< 800ms`
+- play start p95 `< 1200ms`
+- step done p95 `< 1200ms`
 - crash-free sessions `>= 99.5%`
-- duplicate accepted completions `= 0`
+- duplicate XP awards `= 0`
 
 Metric source behavior:
 
-1. completion/nearby p95 are auto-derived from `public.api_request_metrics` over a rolling window.
-2. if auto samples are below threshold, gate falls back to `STAGING_COMPLETION_P95_MS` / `STAGING_NEARBY_P95_MS`.
-3. offline sync SLA and crash-free sessions are provided via staging variables.
+1. hero/start/step p95 are auto-derived from `public.api_request_metrics` over a rolling window.
+2. if auto samples are below threshold, gate falls back to matching staging variables.
+3. crash-free sessions are provided via staging variables.
 
 ### Android nightly smoke
 
@@ -177,11 +198,10 @@ Visible only in non-production builds from Profile tab.
 
 Capabilities:
 
-1. Force sync offline queue.
-2. Clear local offline queue.
-3. Enable/disable Bangalore test location override.
-4. Reset and re-bootstrap session.
-5. Display runtime metadata (env, release, user, city, experiment, queue).
+1. Force diagnostic/profile refresh against backend.
+2. Re-run session bootstrap.
+3. Validate runtime metadata (env, release, user, city, experiment assignments).
+4. Validate FlowState counters (plays, decisions saved, planning minutes saved).
 
 ## Maestro smoke suites
 
@@ -203,7 +223,7 @@ For each staging candidate attach:
 
 1. Build identifier and release SHA.
 2. QA checklist pass/fail notes.
-3. Screenshots for onboarding, quest completion, offline replay, social flow.
+3. Screenshots for diagnostic completion, hero play, active execution, profile achievement loop.
 4. KPI snapshot for latency/SLA/duplicates.
 
 Template command:

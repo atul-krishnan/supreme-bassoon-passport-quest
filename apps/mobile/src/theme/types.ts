@@ -74,6 +74,13 @@ export type ElevationTokens = {
     shadowOffset: { width: number; height: number };
     elevation: number;
   };
+  glowPurple: {
+    shadowColor: string;
+    shadowOpacity: number;
+    shadowRadius: number;
+    shadowOffset: { width: number; height: number };
+    elevation: number;
+  };
 };
 
 export type RadiusTokens = {

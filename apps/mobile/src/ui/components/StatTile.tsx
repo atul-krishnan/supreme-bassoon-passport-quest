@@ -19,18 +19,25 @@ export function StatTile({ label, value }: StatTileProps) {
 const styles = StyleSheet.create({
   card: {
     flex: 1,
+    minHeight: 98,
+    justifyContent: "center",
     paddingVertical: theme.spacing.sm,
     alignItems: "center",
   },
   value: {
     color: theme.colors.textPrimary,
-    fontSize: 20,
+    fontSize: 24,
+    lineHeight: 28,
     fontWeight: "800",
+    fontFamily: theme.typography.display.fontFamily,
   },
   label: {
     color: theme.colors.textSecondary,
-    fontSize: 12,
+    fontSize: theme.typography.caption.fontSize,
+    lineHeight: theme.typography.caption.lineHeight,
     marginTop: 4,
     fontWeight: "600",
+    textAlign: "center",
+    fontFamily: theme.typography.caption.fontFamily,
   },
 });

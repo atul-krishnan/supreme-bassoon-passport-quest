@@ -6,14 +6,13 @@ import { getFlowStateSummary } from "../../src/api/endpoints";
 import { useFlowStateStore } from "../../src/state/flowstate";
 import { theme } from "../../src/theme";
 import {
+  CircularProgress,
   GlassCard,
   InlineError,
   LoadingShimmer,
   NeonButton,
   ScreenContainer,
   StatTile,
-  TopBar,
-  XPBar,
 } from "../../src/ui";
 
 function formatMentalHours(minutes: number) {
@@ -49,12 +48,16 @@ export default function ProfileScreen() {
   const activeSession = summaryQuery.data?.activeSession;
 
   return (
-    <ScreenContainer padded={false}>
-      <View style={styles.header}>
-        <TopBar title="Achievement Loop" />
-      </View>
-
+    <ScreenContainer>
       <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>Habit Forge</Text>
+          <Text style={styles.title}>Rewards for Action</Text>
+          <Text style={styles.subtitle}>
+            Decisions saved, not tasks planned.
+          </Text>
+        </View>
+
         {summaryQuery.isLoading ? <LoadingShimmer label="Loading execution metrics..." /> : null}
         {summaryQuery.error ? (
           <InlineError
@@ -69,36 +72,40 @@ export default function ProfileScreen() {
         {stats ? (
           <>
             <GlassCard style={styles.mainCard}>
-              <Text style={styles.cardEyebrow}>Your Doing Score</Text>
-              <XPBar
+              <CircularProgress
                 value={stats.xpTotal}
-                max={Math.max(120, stats.level * 220)}
-                label={`Level ${stats.level} Operator`}
+                max={Math.max(140, stats.level * 220)}
+                label={`Level ${stats.level}`}
+                subtitle={`${stats.playsCompleted} plays complete`}
               />
               <Text style={styles.cardHint}>
-                Decisions saved and plays completed are compounding every run.
+                The ring fills as execution compounds.
               </Text>
             </GlassCard>
 
             <View style={styles.statsRow}>
-              <StatTile label="Decisions Saved" value={stats.decisionsSaved} />
+              <StatTile label="Decisions Saved 😎" value={stats.decisionsSaved} />
               <StatTile label="Plays Completed" value={stats.playsCompleted} />
             </View>
-            <View style={styles.statsRowSingle}>
+            <View style={styles.statsRow}>
               <StatTile
                 label="Mental Hours Saved"
                 value={formatMentalHours(stats.planningMinutesSaved)}
+              />
+              <StatTile
+                label="Minutes Removed"
+                value={stats.planningMinutesSaved}
               />
             </View>
 
             {activeSession ? (
               <GlassCard style={styles.resumeCard}>
-                <Text style={styles.resumeTitle}>Active Play Detected</Text>
+                <Text style={styles.resumeTitle}>Execution in Progress</Text>
                 <Text style={styles.resumeText}>
                   {activeSession.title}
                 </Text>
                 <NeonButton
-                  label="Resume Play"
+                  label="Resume Script"
                   onPress={() =>
                     router.push({
                       pathname: "/play/[id]",
@@ -116,46 +123,55 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-  },
   content: {
     flex: 1,
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
     gap: theme.spacing.md,
   },
-  mainCard: {
-    gap: theme.spacing.sm,
+  header: {
+    gap: 3,
   },
-  cardEyebrow: {
+  eyebrow: {
+    color: "rgba(207, 224, 255, 0.85)",
+    fontSize: theme.typography.caption.fontSize,
+    lineHeight: theme.typography.caption.lineHeight,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+    fontFamily: theme.typography.caption.fontFamily,
+  },
+  title: {
+    color: theme.colors.textPrimary,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: "800",
+    fontFamily: theme.typography.display.fontFamily,
+  },
+  subtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.body.fontSize,
+    lineHeight: theme.typography.body.lineHeight,
+    fontFamily: theme.typography.body.fontFamily,
+  },
+  mainCard: {
+    gap: theme.spacing.md,
+    alignItems: "center",
+  },
+  cardHint: {
     color: theme.colors.textMuted,
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    fontWeight: "600",
-    fontFamily: theme.typography.caption.fontFamily,
-  },
-  cardHint: {
-    color: theme.colors.textSecondary,
-    fontSize: theme.typography.caption.fontSize,
-    lineHeight: theme.typography.caption.lineHeight,
+    textAlign: "center",
     fontFamily: theme.typography.caption.fontFamily,
   },
   statsRow: {
     flexDirection: "row",
     gap: theme.spacing.xs,
   },
-  statsRowSingle: {
-    flexDirection: "row",
-  },
   resumeCard: {
     gap: theme.spacing.sm,
   },
   resumeTitle: {
-    color: theme.colors.accentCyan,
+    color: theme.colors.accentPurple,
     fontSize: theme.typography.title.fontSize,
     lineHeight: theme.typography.title.lineHeight,
     fontWeight: "700",

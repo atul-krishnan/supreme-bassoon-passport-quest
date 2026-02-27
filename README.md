@@ -1,20 +1,19 @@
 # Passport Quest
 
-Passport Quest MVP v1 implementation scaffold (India-first: BLR pilot, DEL/PUNE post-gate) using Expo React Native + Supabase.
+FlowState v1 implementation scaffold (decision-first execution assistant) using Expo React Native + Supabase.
 
 ## What is implemented
 
 - Mobile app scaffold (`apps/mobile`) with:
 - Anonymous guest auth bootstrap (Supabase Auth).
-- Username onboarding for first-time guest sessions.
-- Nearby quests screen with location, map, and completion trigger.
-- SQLite offline queue for deferred quest completion sync.
-- Social screen with username-based friend request, incoming pending accepts, feed, and profile compare.
-- Profile screen with edit profile (username/avatar), badges, Bangalore pilot runtime info, and offline sync status.
+- FlowState diagnostic onboarding (energy, focus pillar, friction).
+- Instant Play home with single hero play card and execution CTA.
+- Active play script screen with step timer and XP reward loop.
+- Profile screen focused on decisions saved, plays completed, and planning hours saved.
 - Shared API/contracts package (`packages/shared`).
 - Supabase schema + RLS + city runtime config (`supabase/migrations`).
 - Supabase Edge Function router implementing v1 endpoints (`supabase/functions/v1`).
-- SQL tests (`supabase/tests/mvp.sql`).
+- SQL tests focused on core + FlowState contracts (`supabase/tests`).
 
 ## Repo layout
 
@@ -28,17 +27,14 @@ Passport Quest MVP v1 implementation scaffold (India-first: BLR pilot, DEL/PUNE 
 
 All routes are served by the Supabase Edge Function `v1` and map to:
 
-- `GET /v1/quests/nearby?cityId={cityId}&lat={number}&lng={number}&radiusM={number}`
-- `POST /v1/quests/complete`
-- `GET /v1/social/feed?limit={number}&cursor={string?}`
-- `POST /v1/social/friends/request`
-- `POST /v1/social/friends/request-by-username`
-- `POST /v1/social/friends/accept`
-- `GET /v1/social/friend-requests/incoming?status={pending|accepted|rejected|cancelled}`
-- `GET /v1/users/me/profile-compare?friendUserId={uuid}`
+- `POST /v1/flowstate/diagnostic`
+- `GET /v1/flowstate/play/hero?cityId={cityId?}`
+- `POST /v1/flowstate/play/start`
+- `GET /v1/flowstate/play/sessions/{sessionId}`
+- `POST /v1/flowstate/play/sessions/{sessionId}/steps/{stepOrder}/done`
+- `GET /v1/flowstate/summary`
 - `GET /v1/config/bootstrap?cityId={cityId}`
 - `GET /v1/users/me/summary`
-- `GET /v1/users/me/badges`
 - `PATCH /v1/users/me/profile`
 - `POST /v1/notifications/register-token`
 - `GET /v1/health`
@@ -88,6 +84,19 @@ Minimum local values:
 npm run mobile:start
 ```
 
+Android dev-client (recommended to avoid Metro script-load failures):
+
+```bash
+npm run mobile:android:stable
+```
+
+If Android shows `Unable to load script`, run:
+
+```bash
+adb reverse tcp:8081 tcp:8081
+npm run mobile:start -- --dev-client --clear --port 8081
+```
+
 7. Optional status check.
 
 ```bash
@@ -102,8 +111,8 @@ npm run local:status
 
 ## Notes
 
-- Gameplay mutations are server-trusted via `complete_quest` security-definer RPC + idempotency key (`user_id`, `device_event_id`).
-- Anti-cheat thresholds, quiet hours, feature flags, and experiment variant resolution flow through bootstrap/runtime config.
+- FlowState execution and rewards are server-trusted via dedicated `play_*` RPCs.
+- Quiet hours, feature flags, and experiment variant resolution flow through bootstrap/runtime config.
 
 ## Architecture docs
 
@@ -111,7 +120,7 @@ npm run local:status
 - ADR process: `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/README.md`
 - ADR template: `/Users/atulkrishnan/Documents/Passport Quest/docs/adr/0000-template.md`
 - India rollout gate: `/Users/atulkrishnan/Documents/Passport Quest/docs/india-expansion-gate.md`
-- Trip context model: `/Users/atulkrishnan/Documents/Passport Quest/docs/trip-context-model.md`
+- FlowState QA checklist: `/Users/atulkrishnan/Documents/Passport Quest/docs/qa-checklist-bangalore.md`
 - v1.1/v1.2 roadmap: `/Users/atulkrishnan/Documents/Passport Quest/docs/roadmap-v1.1-v1.2.md`
 - Testing + environments + release: `/Users/atulkrishnan/Documents/Passport Quest/docs/testing-environments-and-release.md`
 - GitHub Actions secrets setup: `/Users/atulkrishnan/Documents/Passport Quest/docs/github-actions-secrets-setup.md`
@@ -122,4 +131,4 @@ npm run local:status
 
 - Add DEL/PUNE post-gate migration slice and city content packs.
 - Add push nudge scheduler worker and KPI alerting automation.
-- Add deeper load tests for completion p95 and offline sync SLA.
+- Add deeper load tests for FlowState hero/start/step latency SLOs.

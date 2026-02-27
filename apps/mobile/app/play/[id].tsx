@@ -168,9 +168,9 @@ export default function PlayExecutionScreen() {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            <Text style={styles.backLabel}>Back</Text>
+            <Text style={styles.backLabel}>Exit</Text>
           </Pressable>
-          <Text style={styles.modeLabel}>Execution Script</Text>
+          <Text style={styles.modeLabel}>Active Play</Text>
           <View style={styles.backButton} />
         </View>
 
@@ -182,11 +182,12 @@ export default function PlayExecutionScreen() {
 
         {session ? (
           <GlassCard style={styles.heroCard}>
+            <Text style={styles.scriptLabel}>Execution Script</Text>
             <Text style={styles.title}>{session.title}</Text>
             <Text style={styles.secondaryText}>{session.why}</Text>
 
             <View style={styles.timerWrap}>
-              <Text style={styles.timerLabel}>Current Step Timer</Text>
+              <Text style={styles.timerLabel}>Current Step Clock</Text>
               <Text style={styles.timerValue}>{formatCountdown(execution.remainingSec)}</Text>
             </View>
 
@@ -203,12 +204,26 @@ export default function PlayExecutionScreen() {
                       isCompleted ? styles.stepCardDone : undefined,
                     ]}
                   >
-                    <Text style={styles.stepTitle}>
-                      {step.order}. {step.title}
-                    </Text>
+                    <View style={styles.stepTopRow}>
+                      <Text style={styles.stepTitle}>
+                        {step.order}. {step.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.stepDuration,
+                          isActive ? styles.stepDurationActive : undefined,
+                        ]}
+                      >
+                        ⏱ {Math.max(1, Math.round(step.durationSec / 60))}m
+                      </Text>
+                    </View>
                     <Text style={styles.stepInstruction}>{step.instruction}</Text>
                     <Text style={styles.stepMeta}>
-                      {Math.round(step.durationSec / 60)} min · {isCompleted ? "Done" : isActive ? "Active" : "Pending"}
+                      {isCompleted
+                        ? "Completed"
+                        : isActive
+                        ? "You are here"
+                        : "Queued"}
                     </Text>
                   </View>
                 );
@@ -229,7 +244,7 @@ export default function PlayExecutionScreen() {
         ) : (
           <View style={styles.actions}>
             <NeonButton
-              label="Mark Done"
+              label="Complete Step"
               loading={stepDoneMutation.isPending}
               disabled={!session || !currentStep}
               onPress={() => {
@@ -264,7 +279,7 @@ export default function PlayExecutionScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   topRow: {
     flexDirection: "row",
@@ -282,7 +297,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.body.fontFamily,
   },
   modeLabel: {
-    color: theme.colors.textMuted,
+    color: "rgba(200, 218, 255, 0.85)",
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
     textTransform: "uppercase",
@@ -290,13 +305,22 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.caption.fontFamily,
   },
   heroCard: {
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
     flex: 1,
+  },
+  scriptLabel: {
+    color: "rgba(207, 224, 255, 0.82)",
+    fontSize: theme.typography.caption.fontSize,
+    lineHeight: theme.typography.caption.lineHeight,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+    fontFamily: theme.typography.caption.fontFamily,
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 32,
+    lineHeight: 36,
     fontWeight: "800",
     fontFamily: theme.typography.display.fontFamily,
   },
@@ -308,12 +332,12 @@ const styles = StyleSheet.create({
   },
   timerWrap: {
     borderWidth: 1,
-    borderColor: "rgba(107, 252, 217, 0.45)",
+    borderColor: "rgba(87, 241, 255, 0.58)",
     borderRadius: theme.radius.md,
     padding: theme.spacing.sm,
-    backgroundColor: "rgba(15, 55, 50, 0.4)",
+    backgroundColor: "rgba(10, 52, 86, 0.42)",
     alignItems: "center",
-    ...theme.elevation.glowGreen,
+    ...theme.elevation.glowCyan,
   },
   timerLabel: {
     color: theme.colors.textMuted,
@@ -333,22 +357,29 @@ const styles = StyleSheet.create({
   },
   stepCard: {
     borderWidth: 1,
-    borderColor: "rgba(120, 151, 213, 0.35)",
+    borderColor: "rgba(120, 151, 213, 0.45)",
     borderRadius: theme.radius.md,
     padding: theme.spacing.sm,
-    backgroundColor: "rgba(10, 20, 39, 0.72)",
-    gap: 4,
+    backgroundColor: "rgba(11, 22, 45, 0.78)",
+    gap: 6,
   },
   stepCardActive: {
-    borderColor: "rgba(58, 215, 255, 0.75)",
-    backgroundColor: "rgba(22, 62, 89, 0.6)",
-    ...theme.elevation.glowCyan,
+    borderColor: "rgba(159, 117, 255, 0.94)",
+    backgroundColor: "rgba(62, 38, 120, 0.56)",
+    ...theme.elevation.glowPurple,
   },
   stepCardDone: {
-    borderColor: "rgba(62, 236, 169, 0.6)",
-    backgroundColor: "rgba(20, 70, 48, 0.5)",
+    borderColor: "rgba(85, 236, 206, 0.7)",
+    backgroundColor: "rgba(22, 77, 77, 0.46)",
+  },
+  stepTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing.xs,
   },
   stepTitle: {
+    flex: 1,
     color: theme.colors.textPrimary,
     fontSize: theme.typography.body.fontSize,
     lineHeight: theme.typography.body.lineHeight,
@@ -362,10 +393,28 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.caption.fontFamily,
   },
   stepMeta: {
-    color: theme.colors.textMuted,
+    color: "rgba(217, 231, 255, 0.8)",
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
+    fontWeight: "600",
     fontFamily: theme.typography.caption.fontFamily,
+  },
+  stepDuration: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.caption.fontSize,
+    lineHeight: theme.typography.caption.lineHeight,
+    fontWeight: "600",
+    fontFamily: theme.typography.caption.fontFamily,
+    borderWidth: 1,
+    borderColor: "rgba(113, 151, 218, 0.65)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: "rgba(12, 30, 64, 0.84)",
+  },
+  stepDurationActive: {
+    borderColor: "rgba(168, 137, 255, 0.9)",
+    backgroundColor: "rgba(73, 44, 136, 0.74)",
   },
   completionCard: {
     gap: theme.spacing.sm,

@@ -23,49 +23,49 @@ type Option<T extends string> = {
 const ENERGY_OPTIONS: Option<EnergyBaseline>[] = [
   {
     value: "low",
-    label: "Low",
-    detail: "Need a gentle launch and fewer switches.",
+    label: "🪫 Low Power",
+    detail: "Keep it light. Fewer decisions, smaller first move.",
   },
   {
     value: "balanced",
-    label: "Balanced",
-    detail: "Steady rhythm with room for focused execution.",
+    label: "🔋 Balanced",
+    detail: "Steady mode. One focused script with moderate intensity.",
   },
   {
     value: "high",
-    label: "High",
-    detail: "Ready for a high-intensity action block.",
+    label: "⚡ Full Charge",
+    detail: "High output mode. Push into a bold execution block.",
   },
 ];
 
 const FOCUS_OPTIONS: Option<FocusPillar>[] = [
   {
     value: "deep_work",
-    label: "Deep Work",
-    detail: "Output-first execution for high-leverage tasks.",
+    label: "🧠 Deep Focus",
+    detail: "Output-first script for high-leverage progress.",
   },
   {
     value: "vitality_health",
-    label: "Vitality / Health",
-    detail: "Energy and body reset that improves delivery.",
+    label: "💪 Vitality Boost",
+    detail: "Reset body and energy so execution stays sharp.",
   },
   {
     value: "local_discovery",
-    label: "Local Discovery",
-    detail: "Short real-world scripts with local momentum.",
+    label: "🌍 Local Momentum",
+    detail: "Quick real-world actions that build immediate traction.",
   },
 ];
 
 const FRICTION_OPTIONS: Option<FrictionPoint>[] = [
   {
     value: "decision_paralysis",
-    label: "Decision Paralysis",
-    detail: "Too many choices are blocking execution.",
+    label: "🧩 Decision Overload",
+    detail: "Too many options are draining action speed.",
   },
   {
     value: "procrastination",
-    label: "Procrastination",
-    detail: "You know the task, but momentum is delayed.",
+    label: "🐢 Start Delay",
+    detail: "You know the task, but kickoff keeps slipping.",
   },
 ];
 
@@ -135,10 +135,10 @@ export default function OnboardingScreen() {
 
   const renderEnergyStep = () => (
     <>
-      <Text style={styles.title}>Life Diagnostic</Text>
-      <Text style={styles.subtitle}>Set your current baseline. We handle the decisions.</Text>
+      <Text style={styles.title}>Conducting your Energy Audit... 🔋</Text>
+      <Text style={styles.subtitle}>Tap your current battery signal. Zero typing.</Text>
       <GlassCard style={styles.card}>
-        <Text style={styles.stepLabel}>1 of 3 · Energy Baseline</Text>
+        <Text style={styles.stepLabel}>1 of 3 · Battery Check</Text>
         {ENERGY_OPTIONS.map((option) => (
           <Pressable
             key={option.value}
@@ -163,10 +163,10 @@ export default function OnboardingScreen() {
 
   const renderFocusStep = () => (
     <>
-      <Text style={styles.title}>Life Diagnostic</Text>
-      <Text style={styles.subtitle}>What should this assistant optimize first?</Text>
+      <Text style={styles.title}>Routing your Focus Engine.</Text>
+      <Text style={styles.subtitle}>Pick one lane. We script the next move for you.</Text>
       <GlassCard style={styles.card}>
-        <Text style={styles.stepLabel}>2 of 3 · Focus Pillar</Text>
+        <Text style={styles.stepLabel}>2 of 3 · Priority Lane</Text>
         {FOCUS_OPTIONS.map((option) => (
           <Pressable
             key={option.value}
@@ -196,10 +196,10 @@ export default function OnboardingScreen() {
 
   const renderFrictionStep = () => (
     <>
-      <Text style={styles.title}>Life Diagnostic</Text>
-      <Text style={styles.subtitle}>Identify the blocker. We’ll script the next move.</Text>
+      <Text style={styles.title}>Final Signal Check.</Text>
+      <Text style={styles.subtitle}>Name the drag. We remove it in your first play.</Text>
       <GlassCard style={styles.card}>
-        <Text style={styles.stepLabel}>3 of 3 · Friction Point</Text>
+        <Text style={styles.stepLabel}>3 of 3 · Friction Scan</Text>
         {FRICTION_OPTIONS.map((option) => (
           <Pressable
             key={option.value}
@@ -220,7 +220,7 @@ export default function OnboardingScreen() {
       </GlassCard>
       {errorMessage ? <InlineError message={errorMessage} /> : null}
       <NeonButton
-        label="Run Diagnostic"
+        label="Build My First Play"
         loading={submitMutation.isPending}
         disabled={!canRunDiagnostic}
         onPress={() => submitMutation.mutate()}
@@ -235,15 +235,13 @@ export default function OnboardingScreen() {
 
   const renderDoneStep = () => (
     <>
-      <Text style={styles.title}>Diagnostic Complete.</Text>
-      <Text style={styles.subtitle}>Decisions handled. Your first Play is ready.</Text>
+      <Text style={styles.title}>Audit Complete.</Text>
+      <Text style={styles.subtitle}>Decisions handled. One instant play is ready now.</Text>
       <GlassCard style={styles.doneCard}>
-        <Text style={styles.doneText}>
-          Stop planning. Start doing.
-        </Text>
+        <Text style={styles.doneText}>Stop planning.{"\n"}Start doing.</Text>
       </GlassCard>
       <NeonButton
-        label="Enter FlowState"
+        label="Launch Instant Play"
         onPress={() => {
           setNeedsOnboarding(false);
           trackUiEvent("onboarding_completed");
@@ -269,12 +267,12 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: "center",
-    gap: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: theme.typography.display.fontSize,
-    lineHeight: theme.typography.display.lineHeight,
+    fontSize: 32,
+    lineHeight: 36,
     fontWeight: "800",
     fontFamily: theme.typography.display.fontFamily,
   },
@@ -286,9 +284,10 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: theme.spacing.sm,
+    paddingTop: theme.spacing.lg,
   },
   stepLabel: {
-    color: theme.colors.textMuted,
+    color: "rgba(204, 221, 255, 0.8)",
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
     fontWeight: "600",
@@ -296,22 +295,22 @@ const styles = StyleSheet.create({
   },
   option: {
     borderWidth: 1,
-    borderColor: "rgba(125, 159, 220, 0.34)",
+    borderColor: "rgba(121, 153, 212, 0.42)",
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
-    backgroundColor: "rgba(7, 15, 32, 0.7)",
+    backgroundColor: "rgba(7, 14, 32, 0.66)",
     gap: 4,
   },
   optionActive: {
-    borderColor: "rgba(58, 215, 255, 0.78)",
-    backgroundColor: "rgba(24, 56, 86, 0.56)",
-    ...theme.elevation.glowCyan,
+    borderColor: "rgba(161, 119, 255, 0.86)",
+    backgroundColor: "rgba(72, 44, 138, 0.48)",
+    ...theme.elevation.glowPurple,
   },
   optionTitle: {
     color: theme.colors.textPrimary,
-    fontSize: theme.typography.body.fontSize,
-    lineHeight: theme.typography.body.lineHeight,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: "700",
     fontFamily: theme.typography.body.fontFamily,
   },
@@ -323,14 +322,14 @@ const styles = StyleSheet.create({
   },
   doneCard: {
     alignItems: "center",
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: theme.spacing.xl,
   },
   doneText: {
-    color: theme.colors.accentGreen,
-    fontSize: theme.typography.title.fontSize,
-    lineHeight: theme.typography.title.lineHeight,
-    fontWeight: "700",
-    fontFamily: theme.typography.title.fontFamily,
+    color: theme.colors.accentCyan,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: "800",
+    fontFamily: theme.typography.display.fontFamily,
     textAlign: "center",
   },
 });

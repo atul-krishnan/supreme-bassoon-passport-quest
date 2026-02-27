@@ -29,3 +29,6 @@ supabase/.local
 
 # OS
 .DS_Store
+
+# IDE
+.idea/

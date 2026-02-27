@@ -9,7 +9,7 @@ Create an ADR when a change does at least one of these:
 - Adds or changes API contracts.
 - Changes database schema, RLS, or trust boundaries.
 - Introduces or removes a core dependency/framework.
-- Changes critical user flow behavior (auth, completion, offline sync, social).
+- Changes critical user flow behavior (auth, diagnostic, play execution, rewards).
 - Changes deployment/runtime topology.
 
 ## Naming convention

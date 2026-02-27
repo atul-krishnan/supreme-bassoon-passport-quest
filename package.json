@@ -11,6 +11,7 @@
     "mobile:start": "npm run start --workspace @passport-quest/mobile",
     "mobile:ios": "npm run ios --workspace @passport-quest/mobile",
     "mobile:android": "npm run android --workspace @passport-quest/mobile",
+    "mobile:android:stable": "bash scripts/mobile/start-android-dev.sh",
     "mobile:typecheck": "npm run typecheck --workspace @passport-quest/mobile",
     "mobile:test": "npm run test --workspace @passport-quest/mobile",
     "mobile:test:ci": "npm run test:ci --workspace @passport-quest/mobile",

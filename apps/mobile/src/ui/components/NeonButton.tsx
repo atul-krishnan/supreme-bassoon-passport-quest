@@ -44,7 +44,7 @@ export function NeonButton({
     >
       {loading ? (
         <ActivityIndicator
-          color={primary ? "#03231A" : theme.colors.textPrimary}
+          color={theme.colors.textPrimary}
         />
       ) : null}
       <Text
@@ -61,7 +61,7 @@ export function NeonButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
+    minHeight: 52,
     borderRadius: theme.radius.xl,
     flexDirection: "row",
     alignItems: "center",
@@ -70,13 +70,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
   },
   primary: {
-    backgroundColor: theme.colors.accentGreen,
-    ...theme.elevation.glowGreen,
+    backgroundColor: "rgba(125, 86, 255, 0.9)",
+    borderWidth: 1,
+    borderColor: "rgba(147, 228, 255, 0.65)",
+    ...theme.elevation.glowPurple,
   },
   secondary: {
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: "rgba(19, 35, 70, 0.66)",
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: "rgba(108, 136, 196, 0.62)",
   },
   disabled: {
     opacity: 0.55,
@@ -88,9 +90,10 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.body.fontSize,
     lineHeight: theme.typography.body.lineHeight,
     fontWeight: "700",
+    fontFamily: theme.typography.body.fontFamily,
   },
   primaryLabel: {
-    color: "#03231A",
+    color: theme.colors.textPrimary,
   },
   secondaryLabel: {
     color: theme.colors.textPrimary,

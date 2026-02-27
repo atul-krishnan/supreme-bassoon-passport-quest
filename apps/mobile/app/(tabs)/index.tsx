@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import type { FocusPillar } from "@passport-quest/shared";
 import { trackUiEvent } from "../../src/analytics/events";
 import { getHeroPlay, startPlaySession } from "../../src/api/endpoints";
 import { useFlowStateStore } from "../../src/state/flowstate";
@@ -13,6 +14,16 @@ import {
   NeonButton,
   ScreenContainer,
 } from "../../src/ui";
+
+function formatFocusPillar(pillar: FocusPillar) {
+  if (pillar === "deep_work") {
+    return "Focus";
+  }
+  if (pillar === "vitality_health") {
+    return "Vitality";
+  }
+  return "Momentum";
+}
 
 export default function HomePlayScreen() {
   const heroPlay = useFlowStateStore((state) => state.heroPlay);
@@ -83,10 +94,10 @@ export default function HomePlayScreen() {
     <ScreenContainer>
       <View style={styles.root}>
         <View style={styles.header}>
-          <Text style={styles.title}>Stop planning.</Text>
-          <Text style={styles.titleAccent}>Start doing.</Text>
+          <Text style={styles.title}>Instant Play.</Text>
+          <Text style={styles.titleAccent}>One move. Right now.</Text>
           <Text style={styles.subtitle}>
-            FlowState picks one execution script and removes decision drag.
+            Stop planning. Start doing. We pick one high-trust script so you can execute.
           </Text>
         </View>
 
@@ -95,34 +106,28 @@ export default function HomePlayScreen() {
 
           {!loading && resolvedHeroPlay ? (
             <>
-              <Text style={styles.eyebrow}>Instant Play</Text>
+              <Text style={styles.eyebrow}>Decision-First Intelligence</Text>
               <Text style={styles.playTitle}>{resolvedHeroPlay.title}</Text>
               <Text style={styles.playSummary}>{resolvedHeroPlay.summary}</Text>
 
               <View style={styles.metaRow}>
-                <Text style={styles.metaChip}>⏱ {resolvedHeroPlay.durationMin}m</Text>
-                <Text style={styles.metaChip}>⭐ +{resolvedHeroPlay.xpReward} XP</Text>
+                <Text style={styles.metaChip}>⚡ {resolvedHeroPlay.durationMin} Min</Text>
                 <Text style={styles.metaChip}>
-                  🧠 {resolvedHeroPlay.decisionMinutesSaved} min saved
+                  🧠 {formatFocusPillar(resolvedHeroPlay.focusPillar)}
                 </Text>
+                <Text style={styles.metaChip}>🏆 +{resolvedHeroPlay.xpReward} XP</Text>
               </View>
 
               <View style={styles.whyChip}>
                 <Text style={styles.whyText}>✨ {resolvedHeroPlay.why}</Text>
               </View>
 
-              <View style={styles.stepsBlock}>
-                {resolvedHeroPlay.steps.slice(0, 3).map((step) => (
-                  <View key={step.order} style={styles.stepRow}>
-                    <Text style={styles.stepIndex}>{step.order}.</Text>
-                    <Text style={styles.stepText}>{step.title}</Text>
-                    <Text style={styles.stepDuration}>{Math.round(step.durationSec / 60)}m</Text>
-                  </View>
-                ))}
-              </View>
+              <Text style={styles.savingsText}>
+                {resolvedHeroPlay.decisionMinutesSaved} decision minutes saved
+              </Text>
 
               <NeonButton
-                label="Start Play 🚀"
+                label="Start Play"
                 loading={startMutation.isPending}
                 onPress={() => {
                   setErrorMessage(null);
@@ -130,23 +135,16 @@ export default function HomePlayScreen() {
                 }}
                 style={styles.primaryCta}
               />
-
-              <NeonButton
-                label="Refresh Play"
-                variant="secondary"
-                onPress={() => {
-                  setErrorMessage(null);
-                  void heroQuery.refetch();
-                }}
-              />
             </>
           ) : null}
 
           {!loading && !resolvedHeroPlay ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No play is ready yet. Complete diagnostic to continue.</Text>
+              <Text style={styles.emptyText}>
+                No play is ready yet. Complete your Energy Audit to unlock it.
+              </Text>
               <NeonButton
-                label="Go to Diagnostic"
+                label="Run Energy Audit"
                 onPress={() => router.push("/onboarding")}
               />
             </View>
@@ -176,19 +174,19 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.md,
   },
   header: {
-    gap: 2,
+    gap: 4,
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: 36,
-    lineHeight: 40,
+    fontSize: 34,
+    lineHeight: 38,
     fontWeight: "800",
     fontFamily: theme.typography.display.fontFamily,
   },
   titleAccent: {
-    color: theme.colors.accentGreen,
-    fontSize: 36,
-    lineHeight: 40,
+    color: theme.colors.accentPurple,
+    fontSize: 34,
+    lineHeight: 38,
     fontWeight: "800",
     fontFamily: theme.typography.display.fontFamily,
   },
@@ -201,11 +199,12 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     flex: 1,
-    gap: theme.spacing.sm,
+    justifyContent: "center",
+    gap: theme.spacing.md,
     borderRadius: theme.radius.xl,
   },
   eyebrow: {
-    color: theme.colors.textMuted,
+    color: "rgba(210, 225, 255, 0.84)",
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
     fontWeight: "600",
@@ -215,8 +214,8 @@ const styles = StyleSheet.create({
   },
   playTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 32,
+    lineHeight: 36,
     fontWeight: "800",
     fontFamily: theme.typography.display.fontFamily,
   },
@@ -229,7 +228,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: theme.spacing.xs,
+    gap: 6,
   },
   metaChip: {
     color: theme.colors.textPrimary,
@@ -238,60 +237,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: theme.typography.caption.fontFamily,
     borderWidth: 1,
-    borderColor: "rgba(116, 149, 206, 0.36)",
+    borderColor: "rgba(109, 147, 212, 0.46)",
     borderRadius: 999,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: "rgba(16, 30, 55, 0.72)",
+    backgroundColor: "rgba(14, 28, 58, 0.84)",
+    overflow: "hidden",
   },
   whyChip: {
     borderWidth: 1,
-    borderColor: "rgba(112, 255, 223, 0.4)",
-    backgroundColor: "rgba(34, 93, 78, 0.42)",
+    borderColor: "rgba(79, 234, 255, 0.56)",
+    backgroundColor: "rgba(12, 56, 87, 0.5)",
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
   },
   whyText: {
-    color: "#D9FFF3",
+    color: "#DFF8FF",
     fontSize: theme.typography.body.fontSize,
     lineHeight: theme.typography.body.lineHeight,
     fontWeight: "600",
     fontFamily: theme.typography.body.fontFamily,
   },
-  stepsBlock: {
-    gap: theme.spacing.xs,
-    paddingVertical: theme.spacing.xs,
-  },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.xs,
-  },
-  stepIndex: {
-    color: theme.colors.accentCyan,
-    fontSize: theme.typography.body.fontSize,
-    lineHeight: theme.typography.body.lineHeight,
-    fontWeight: "700",
-    width: 20,
-    fontFamily: theme.typography.body.fontFamily,
-  },
-  stepText: {
-    flex: 1,
-    color: theme.colors.textPrimary,
-    fontSize: theme.typography.body.fontSize,
-    lineHeight: theme.typography.body.lineHeight,
-    fontWeight: "600",
-    fontFamily: theme.typography.body.fontFamily,
-  },
-  stepDuration: {
+  savingsText: {
     color: theme.colors.textMuted,
-    fontSize: theme.typography.caption.fontSize,
-    lineHeight: theme.typography.caption.lineHeight,
+    fontSize: theme.typography.body.fontSize,
+    lineHeight: theme.typography.body.lineHeight,
+    fontWeight: "600",
     fontFamily: theme.typography.caption.fontFamily,
   },
   primaryCta: {
-    marginTop: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
   },
   emptyState: {
     flex: 1,

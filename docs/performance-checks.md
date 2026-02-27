@@ -1,44 +1,46 @@
-# Performance Checks (Bangalore Gate)
+# Performance Checks (FlowState)
 
-## Completion latency (target p95 < 2s)
+## Hero play latency (target p95 < 800ms)
 
-- Measure Edge Function latency for `POST /v1/quests/complete` from app telemetry event `quest_completion_api_latency`.
+- Measure Edge Function latency for `GET /v1/flowstate/play/hero`.
 - Compute p95 over rolling 24h and weekly windows.
+- Segment by city context and network type.
 
-## Nearby query latency (target warm p95 < 800ms)
+## Play-start latency (target p95 < 1200ms)
 
-- Measure client timing around `GET /v1/quests/nearby` after initial app bootstrap.
-- Segment by network type (wifi/cellular).
+- Measure `POST /v1/flowstate/play/start` from tap to response.
+- Track failure rate for `recommendation_not_found` and transport errors.
 
-## Offline sync SLA (target >=99% within 10 minutes)
+## Step completion latency (target p95 < 1200ms)
 
-- Track queue age minutes when `offline_sync_success` fires.
-- KPI: percent of queued events synced with age <= 10 minutes.
+- Measure `POST /v1/flowstate/play/sessions/{id}/steps/{n}/done`.
+- Verify no duplicate XP award on retried requests.
+
+## State summary latency (target p95 < 700ms)
+
+- Measure `GET /v1/flowstate/summary` used by profile.
+- Validate profile render remains stable on slow network.
 
 ## Suggested SQL probes (server side)
 
 ```sql
--- Duplicate reward integrity
-select count(*) as duplicate_accepted
-from public.quest_completions qc
-where qc.status = 'accepted'
-and exists (
-  select 1
-  from public.quest_completions q2
-  where q2.user_id = qc.user_id
-    and q2.device_event_id = qc.device_event_id
-    and q2.id <> qc.id
-    and q2.status = 'accepted'
-);
+-- Completed sessions in last 24h
+select count(*) as completed_sessions_24h
+from public.play_sessions
+where status = 'completed'
+  and completed_at >= now() - interval '24 hours';
 
--- Recent completion volume and rejection rate
+-- Step completion volume by status in last 24h
 select
-  date_trunc('hour', received_at) as hour,
-  count(*) as attempts,
-  count(*) filter (where status = 'accepted') as accepted,
-  count(*) filter (where status = 'rejected') as rejected
-from public.quest_completions
-where received_at >= now() - interval '24 hours'
-group by 1
-order by 1 desc;
+  status,
+  count(*) as steps
+from public.play_session_steps
+where updated_at >= now() - interval '24 hours'
+group by status
+order by status;
+
+-- Users with non-zero planning minutes saved
+select count(*) as users_with_saved_minutes
+from public.user_stats
+where planning_minutes_saved > 0;
 ```

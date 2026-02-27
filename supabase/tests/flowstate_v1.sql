@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(19);
 
 select has_table('public', 'user_flow_diagnostics', 'user_flow_diagnostics exists');
 select has_table('public', 'play_templates', 'play_templates exists');
@@ -12,6 +12,7 @@ select has_table('public', 'play_session_steps', 'play_session_steps exists');
 select has_function('public', 'upsert_user_flow_diagnostic', array['uuid', 'text', 'text', 'text'], 'upsert_user_flow_diagnostic rpc exists');
 select has_function('public', 'get_hero_play', array['uuid', 'text'], 'get_hero_play rpc exists');
 select has_function('public', 'start_play_session', array['uuid', 'uuid'], 'start_play_session rpc exists');
+select has_function('public', 'get_play_session_detail', array['uuid', 'uuid'], 'get_play_session_detail rpc exists');
 select has_function('public', 'mark_play_step_done', array['uuid', 'uuid', 'integer'], 'mark_play_step_done rpc exists');
 select has_function('public', 'get_flowstate_summary', array['uuid'], 'get_flowstate_summary rpc exists');
 
@@ -62,6 +63,17 @@ select ok(
   'hero play is available after diagnostic'
 );
 
+select is(
+  (
+    public.start_play_session(
+      (select user_id from flow_ctx),
+      gen_random_uuid()
+    )->>'status'
+  ),
+  'recommendation_not_found',
+  'start_play_session returns recommendation_not_found for unknown recommendation'
+);
+
 select ok(
   (
     with hero as (
@@ -100,6 +112,29 @@ select ok(
       and (select payload->>'status' from step3) = 'completed'
   ),
   'play session progresses through all three steps'
+);
+
+select is(
+  (
+    public.mark_play_step_done(
+      (select user_id from flow_ctx),
+      gen_random_uuid(),
+      1
+    )->>'status'
+  ),
+  'not_found',
+  'mark_play_step_done returns not_found for unknown session'
+);
+
+select is(
+  (
+    public.get_play_session_detail(
+      (select user_id from flow_ctx),
+      gen_random_uuid()
+    )->>'status'
+  ),
+  'not_found',
+  'get_play_session_detail returns not_found for unknown session'
 );
 
 select ok(
